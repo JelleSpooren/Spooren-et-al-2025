@@ -1,0 +1,16 @@
+Timepoint;Treatment;R2;Significant
+1;Mock;0.046;No
+1;Hpa;0.55;Yes
+1;gnoHpa;0.048;No
+2;Mock;0.24;Yes
+2;Hpa;0.51;Yes
+2;gnoHpa;0.23;Yes
+3;Mock;0.27;Yes
+3;Hpa;0.47;Yes
+3;gnoHpa;0.26;Yes
+4;Mock;0.18;Yes
+4;Hpa;0.38;Yes
+4;gnoHpa;0.3;Yes
+5;Mock;0.21;Yes
+5;Hpa;0.46;Yes
+5;gnoHpa;0.38;Yes

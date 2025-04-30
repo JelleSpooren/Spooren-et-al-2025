@@ -1,0 +1,13 @@
+OTU	Status	Number_criteria
+99afea602eb398fa3c9a3f2476472a42	Enriched	Three
+75fa685326a035527533f685a54bb1be	Enriched	Three
+f359d6b12d6df77fce3684238719e6c2	Enriched	Three
+85ee76f49ab8e37b1e8259758815a96d	Enriched	Three
+2b364af4f3acffb23bf138229399c60a	Enriched	Three
+6a8cd212906e0a5fd451e76aa130f625	Enriched	Three
+c41af3ba7aeabdb1886cf01eddb79139	Enriched	Three
+ed6be6f35c692c6166ff8442f30ba282	Enriched	Three
+63e73dd3fd5ed14a3867c2bdbdae7a95	Enriched	Three
+2cd30e9eda91687ba73dcae76f4f1880	Enriched	Three
+235c42b49271bd7268fcad55de33b53e	Enriched	Three
+ef3608ee889968782d91e0755965cc5a	Enriched	Three
