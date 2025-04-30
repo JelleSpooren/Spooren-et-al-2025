@@ -1,0 +1,3816 @@
+### Fig. 1 ####
+#Fig 1A
+setwd("C:/Users/4255607/OneDrive - Universiteit Utrecht/PhD/Experiments/Chapter 4/Soil transplantation/New soil batch 2022")
+theme_set(theme_bw())
+table <- read.table("Generation_2_repetition.csv", header = TRUE, sep = ";")
+table$Inoculum <- factor(table$Inoculum, levels = c('Mock', 'gnoHpa'))
+table$Soil_type <- factor(table$Soil_type, levels = c('Natural', 'Sterile', 'Mix'))
+table$Treatment <- factor(table$Treatment, levels = c('Natural_mock', 'Natural_gnoHpa', 'Sterile_mock', 'Sterile_gnoHpa', 'Mix_mock', 'Mix_gnoHpa'))
+vec1 <- c("natural", "GI", "1:9 Mix natural:GI")
+
+barplot1 <- ggbarplot(table, x = "Soil_type", y = "Spores_g", fill = "Inoculum",
+                      add = "mean_se",
+                      position = position_dodge(0.8), width = 0.5, ylim = c(0,800000)) +
+  scale_y_continuous(name = "spores/gram freshweight", labels = number) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  #scale_x_discrete(label = vec1) +
+  #geom_jitter(size = 1, width = 0.25, height = 0)+
+  #facet_grid( ~ Cultivar) + #, scales = "free", space = "free") +
+  #coord_cartesian(ylim=c(0,10)) +
+  scale_fill_manual(values=c(Mock = "dark green", Hpa = "dark green", gnoHpa = "dark green")) +
+  theme(legend.position = 'none',
+        axis.title.x=element_blank(),
+        axis.text.x=element_text(angle = 0, hjust = 0.5, size = 10),
+        axis.text.y=element_text(size = 10),
+        axis.title.y=element_text(size = 10, vjust = 2),
+        plot.title = element_text(hjust = 0.5, size = 10))
+print(barplot1)
+ggsave(file="barplot_spores_g_repetition.svg", plot=barplot1, width=5, height=3)
+
+## statistics t.test(vec_control, vec_treatment, alternative = c("less"), var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+
+##Fig. 1B-C
+library(cluster)
+library(apeglm)
+library(phyloseq)
+library(ggplot2)
+library(ggpubr)
+library(vegan)
+library(DESeq2)
+library(dplyr)
+library(pairwiseAdonis)
+library(UpSetR)
+library(tidyr)
+library(powerjoin)
+library(tidyverse)
+library(pheatmap)
+library(scales)
+
+
+setwd('/Users/shaoyadong/Desktop/Hpa_associated_microbiomes-main/core')
+
+
+all_ASV_tax <-read.csv('all_ASV_tax.csv',check.names=F,row.names = 1)
+all_ASV_num <-read.csv('all_ASV_num.csv',check.names=F,row.names = 1)
+all_metadate_table <-read.csv('all_metadate_table.csv',check.names=F,row.names = 1)
+
+ASV_table_meta <- phyloseq(sample_data(all_metadate_table),
+                           otu_table(as.matrix(all_ASV_num), taxa_are_rows = TRUE), 
+                           tax_table(as.matrix(all_ASV_tax)))
+ASV_table_meta_relative = transform_sample_counts(ASV_table_meta, function(x) x/sum(x))
+
+Noco2_mock_exp1 = subset_samples(ASV_table_meta, Treatment1 == 'Noco2_Col-0_exp1' | Treatment1 == 'Mock_Col-0_exp1'| Treatment1 == 'Noco2_Pro-0_exp1'| Treatment1 == 'Mock_Pro-0_exp1')
+Cala2_mock_exp1 = subset_samples(ASV_table_meta, Treatment1 == 'Cala2_Ler_exp1' | Treatment1 == 'Mock_Ler_exp1'| Treatment1 == 'Cala2_Pro-0_exp1'| Treatment1 == 'Mock_Pro-0_exp1')
+mix_mock_exp1 = subset_samples(ASV_table_meta, Treatment1 == 'Mix_Pro-0_exp1' | Treatment1 == 'Mock_Pro-0_exp1')
+Noco2_mock_exp2 =subset_samples(ASV_table_meta, Treatment1 == 'Noco2_Col-0_exp2' | Treatment1 == 'Mock_Col-0_exp2')
+Cala2_mock_exp2 = subset_samples(ASV_table_meta, Treatment1 == 'Cala2_Ler_exp2' | Treatment1 == 'Mock_Ler_exp2')
+G1_Cala2_mock_exp3 = subset_samples(ASV_table_meta, Treatment == 'G1_Cala2_exp3' | Treatment == 'G1_Mock_exp3')
+G5_Cala2_mock_exp3 = subset_samples(ASV_table_meta, Treatment == 'G5_Cala2_exp3' | Treatment == 'G5_Mock_exp3')
+G9_Cala2_mock_exp3 = subset_samples(ASV_table_meta, Treatment == 'G9_Cala2_exp3' | Treatment == 'G9_Mock_exp3')
+G1_Noco2_mock_exp3 = subset_samples(ASV_table_meta, Treatment == 'G1_Noco2_exp3' | Treatment == 'G1_Mock_exp3')
+G5_Noco2_mock_exp3 = subset_samples(ASV_table_meta, Treatment == 'G5_Noco2_exp3' | Treatment == 'G5_Mock_exp3')
+G9_Noco2_mock_exp3 = subset_samples(ASV_table_meta, Treatment == 'G9_Noco2_exp3' | Treatment == 'G9_Mock_exp3')
+GnoHpa_mock_exp4=subset_samples(ASV_table_meta, Treatment == 'GnoHpa_exp4' | Treatment == 'Mock_exp4')
+Hpa_mock_exp4=subset_samples(ASV_table_meta, Treatment == 'Hpa_exp4' | Treatment == 'Mock_exp4')
+G1_Hpa_mock_exp5=subset_samples(ASV_table_meta, Treatment == 'G1_Hpa_exp5' | Treatment == 'G1_Mock_exp5')
+Water_Noco2_mock_exp6=subset_samples(ASV_table_meta, Treatment == 'Water_Noco2_exp6' | Treatment == 'Mock_exp6')
+
+
+gm_mean = function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
+
+#Noco2_mock_exp1
+DESeq2_Noco2_mock_exp1 = phyloseq_to_deseq2(Noco2_mock_exp1, ~Treatment)
+geoMeans = apply(counts(DESeq2_Noco2_mock_exp1), 1, gm_mean)
+DESeq2_Noco2_mock_exp1 = estimateSizeFactors(DESeq2_Noco2_mock_exp1, geoMeans = geoMeans)
+DESeq2_Noco2_mock_exp1 = DESeq(DESeq2_Noco2_mock_exp1, fitType='local')
+DESeq2_Noco2_mock_exp1_res <- results(DESeq2_Noco2_mock_exp1, contrast = c('Treatment', 'Noco2_exp1', 'Mock_exp1'))
+Noco2_mock_exp1_list<-as(DESeq2_Noco2_mock_exp1_res, 'data.frame')
+DESeq2_Noco2_mock_exp1_res = DESeq2_Noco2_mock_exp1_res[which(DESeq2_Noco2_mock_exp1_res$padj<0.05&DESeq2_Noco2_mock_exp1_res$log2FoldChange > 0), ]
+sigtab_Noco2_mock_exp1 = cbind(as(DESeq2_Noco2_mock_exp1_res, 'data.frame'), as(tax_table(Noco2_mock_exp1)[rownames(DESeq2_Noco2_mock_exp1_res), ], 'matrix'))
+
+#Cala2_mock_exp1
+DESeq2_Cala2_mock_exp1 = phyloseq_to_deseq2(Cala2_mock_exp1, ~Treatment)
+geoMeans = apply(counts(DESeq2_Cala2_mock_exp1), 1, gm_mean)
+DESeq2_Cala2_mock_exp1 = estimateSizeFactors(DESeq2_Cala2_mock_exp1, geoMeans = geoMeans)
+DESeq2_Cala2_mock_exp1 = DESeq(DESeq2_Cala2_mock_exp1, fitType='local')
+DESeq2_Cala2_mock_exp1_res <- results(DESeq2_Cala2_mock_exp1, contrast = c('Treatment', 'Cala2_exp1', 'Mock_exp1'))
+Cala2_mock_exp1_list = as(DESeq2_Cala2_mock_exp1_res, 'data.frame')
+DESeq2_Cala2_mock_exp1_res = DESeq2_Cala2_mock_exp1_res[which(DESeq2_Cala2_mock_exp1_res$padj<0.05&DESeq2_Cala2_mock_exp1_res$log2FoldChange > 0), ]
+sigtab_Cala2_mock_exp1 = cbind(as(DESeq2_Cala2_mock_exp1_res, 'data.frame'), as(tax_table(Cala2_mock_exp1)[rownames(DESeq2_Cala2_mock_exp1_res), ], 'matrix'))
+
+#mix_mock_exp1
+DESeq2_Mix_mock_exp1 = phyloseq_to_deseq2(mix_mock_exp1, ~Treatment)
+geoMeans = apply(counts(DESeq2_Mix_mock_exp1), 1, gm_mean)
+DESeq2_Mix_mock_exp1 = estimateSizeFactors(DESeq2_Mix_mock_exp1, geoMeans = geoMeans)
+DESeq2_Mix_mock_exp1 = DESeq(DESeq2_Mix_mock_exp1, fitType='local')
+DESeq2_Mix_mock_exp1_res <- results(DESeq2_Mix_mock_exp1, contrast = c('Treatment', 'Mix_exp1', 'Mock_exp1'))
+mix_mock_exp1_list = as(DESeq2_Mix_mock_exp1_res, 'data.frame')
+DESeq2_Mix_mock_exp1_res = DESeq2_Mix_mock_exp1_res[which(DESeq2_Mix_mock_exp1_res$padj<0.05&DESeq2_Mix_mock_exp1_res$log2FoldChange > 0), ]
+sigtab_Mix_mock_exp1 = cbind(as(DESeq2_Mix_mock_exp1_res, 'data.frame'), as(tax_table(mix_mock_exp1)[rownames(DESeq2_Mix_mock_exp1_res), ], 'matrix'))
+
+#Noco2_mock_exp2
+DESeq2_Noco2_mock_exp2 = phyloseq_to_deseq2(Noco2_mock_exp2, ~Treatment)
+geoMeans = apply(counts(DESeq2_Noco2_mock_exp2), 1, gm_mean)
+DESeq2_Noco2_mock_exp2 = estimateSizeFactors(DESeq2_Noco2_mock_exp2, geoMeans = geoMeans)
+DESeq2_Noco2_mock_exp2 = DESeq(DESeq2_Noco2_mock_exp2, fitType='local')
+DESeq2_Noco2_mock_exp2_res <- results(DESeq2_Noco2_mock_exp2, contrast = c('Treatment', 'Noco2_exp2', 'Mock_exp2'))
+Noco2_mock_exp2_list = as(DESeq2_Noco2_mock_exp2_res, 'data.frame')
+DESeq2_Noco2_mock_exp2_res = DESeq2_Noco2_mock_exp2_res[which(DESeq2_Noco2_mock_exp2_res$padj<0.05&DESeq2_Noco2_mock_exp2_res$log2FoldChange > 0), ]
+sigtab_Noco2_mock_exp2 = cbind(as(DESeq2_Noco2_mock_exp2_res, 'data.frame'), as(tax_table(Noco2_mock_exp2)[rownames(DESeq2_Noco2_mock_exp2_res), ], 'matrix'))
+
+#Cala2_mock_exp2
+DESeq2_Cala2_mock_exp2 = phyloseq_to_deseq2(Cala2_mock_exp2, ~Treatment)
+geoMeans = apply(counts(DESeq2_Cala2_mock_exp2), 1, gm_mean)
+DESeq2_Cala2_mock_exp2 = estimateSizeFactors(DESeq2_Cala2_mock_exp2, geoMeans = geoMeans)
+DESeq2_Cala2_mock_exp2 = DESeq(DESeq2_Cala2_mock_exp2, fitType='local')
+DESeq2_Cala2_mock_exp2_res <- results(DESeq2_Cala2_mock_exp2, contrast = c('Treatment', 'Cala2_exp2', 'Mock_exp2'))
+Cala2_mock_exp2_list =as(DESeq2_Cala2_mock_exp2_res, 'data.frame')
+DESeq2_Cala2_mock_exp2_res = DESeq2_Cala2_mock_exp2_res[which(DESeq2_Cala2_mock_exp2_res$padj<0.05&DESeq2_Cala2_mock_exp2_res$log2FoldChange > 0), ]
+sigtab_Cala2_mock_exp2 = cbind(as(DESeq2_Cala2_mock_exp2_res, 'data.frame'), as(tax_table(Cala2_mock_exp2)[rownames(DESeq2_Cala2_mock_exp2_res), ], 'matrix'))
+
+#G1_Cala2_mock_exp3
+DESeq2_G1_Cala2_mock_exp3 = phyloseq_to_deseq2(G1_Cala2_mock_exp3, ~Treatment)
+geoMeans = apply(counts(DESeq2_G1_Cala2_mock_exp3), 1, gm_mean)
+DESeq2_G1_Cala2_mock_exp3 = estimateSizeFactors(DESeq2_G1_Cala2_mock_exp3, geoMeans = geoMeans)
+DESeq2_G1_Cala2_mock_exp3 = DESeq(DESeq2_G1_Cala2_mock_exp3, fitType='local')
+DESeq2_G1_Cala2_mock_exp3_res <- results(DESeq2_G1_Cala2_mock_exp3, contrast = c('Treatment', 'G1_Cala2_exp3', 'G1_Mock_exp3'))
+G1_Cala2_mock_exp3_list = as(DESeq2_G1_Cala2_mock_exp3_res, 'data.frame')
+DESeq2_G1_Cala2_mock_exp3_res = DESeq2_G1_Cala2_mock_exp3_res[which(DESeq2_G1_Cala2_mock_exp3_res$padj<0.05&DESeq2_G1_Cala2_mock_exp3_res$log2FoldChange > 0), ]
+sigtab_G1_Cala2_mock_exp3 = cbind(as(DESeq2_G1_Cala2_mock_exp3_res, 'data.frame'), as(tax_table(G1_Cala2_mock_exp3)[rownames(DESeq2_G1_Cala2_mock_exp3_res), ], 'matrix'))
+
+#G5_Cala2_mock_exp3
+DESeq2_G5_Cala2_mock_exp3 = phyloseq_to_deseq2(G5_Cala2_mock_exp3, ~Treatment)
+geoMeans = apply(counts(DESeq2_G5_Cala2_mock_exp3), 1, gm_mean)
+DESeq2_G5_Cala2_mock_exp3 = estimateSizeFactors(DESeq2_G5_Cala2_mock_exp3, geoMeans = geoMeans)
+DESeq2_G5_Cala2_mock_exp3 = DESeq(DESeq2_G5_Cala2_mock_exp3, fitType='local')
+DESeq2_G5_Cala2_mock_exp3_res <- results(DESeq2_G5_Cala2_mock_exp3, contrast = c('Treatment', 'G5_Cala2_exp3', 'G5_Mock_exp3'))
+G5_Cala2_mock_exp3_list = as(DESeq2_G5_Cala2_mock_exp3_res, 'data.frame')
+DESeq2_G5_Cala2_mock_exp3_res = DESeq2_G5_Cala2_mock_exp3_res[which(DESeq2_G5_Cala2_mock_exp3_res$padj<0.05&DESeq2_G5_Cala2_mock_exp3_res$log2FoldChange > 0), ]
+sigtab_G5_Cala2_mock_exp3 = cbind(as(DESeq2_G5_Cala2_mock_exp3_res, 'data.frame'), as(tax_table(G5_Cala2_mock_exp3)[rownames(DESeq2_G5_Cala2_mock_exp3_res), ], 'matrix'))
+
+#G9_Cala2_mock_exp3
+DESeq2_G9_Cala2_mock_exp3 = phyloseq_to_deseq2(G9_Cala2_mock_exp3, ~Treatment)
+geoMeans = apply(counts(DESeq2_G9_Cala2_mock_exp3), 1, gm_mean)
+DESeq2_G9_Cala2_mock_exp3 = estimateSizeFactors(DESeq2_G9_Cala2_mock_exp3, geoMeans = geoMeans)
+DESeq2_G9_Cala2_mock_exp3 = DESeq(DESeq2_G9_Cala2_mock_exp3, fitType='local')
+DESeq2_G9_Cala2_mock_exp3_res <- results(DESeq2_G9_Cala2_mock_exp3, contrast = c('Treatment', 'G9_Cala2_exp3', 'G9_Mock_exp3'))
+G9_Cala2_mock_exp3_list = as(DESeq2_G9_Cala2_mock_exp3_res, 'data.frame')
+DESeq2_G9_Cala2_mock_exp3_res = DESeq2_G9_Cala2_mock_exp3_res[which(DESeq2_G9_Cala2_mock_exp3_res$padj<0.05&DESeq2_G9_Cala2_mock_exp3_res$log2FoldChange > 0), ]
+sigtab_G9_Cala2_mock_exp3 = cbind(as(DESeq2_G9_Cala2_mock_exp3_res, 'data.frame'), as(tax_table(G9_Cala2_mock_exp3)[rownames(DESeq2_G9_Cala2_mock_exp3_res), ], 'matrix'))
+
+#G1_Noco2_mock_exp3
+DESeq2_G1_Noco2_mock_exp3 = phyloseq_to_deseq2(G1_Noco2_mock_exp3, ~Treatment)
+geoMeans = apply(counts(DESeq2_G1_Noco2_mock_exp3), 1, gm_mean)
+DESeq2_G1_Noco2_mock_exp3 = estimateSizeFactors(DESeq2_G1_Noco2_mock_exp3, geoMeans = geoMeans)
+DESeq2_G1_Noco2_mock_exp3 = DESeq(DESeq2_G1_Noco2_mock_exp3, fitType='local')
+DESeq2_G1_Noco2_mock_exp3_res <- results(DESeq2_G1_Noco2_mock_exp3, contrast = c('Treatment', 'G1_Noco2_exp3', 'G1_Mock_exp3'))
+G1_Noco2_mock_exp3_list = as(DESeq2_G1_Noco2_mock_exp3_res, 'data.frame')
+DESeq2_G1_Noco2_mock_exp3_res = DESeq2_G1_Noco2_mock_exp3_res[which(DESeq2_G1_Noco2_mock_exp3_res$padj<0.05&DESeq2_G1_Noco2_mock_exp3_res$log2FoldChange > 0), ]
+sigtab_G1_Noco2_mock_exp3 = cbind(as(DESeq2_G1_Noco2_mock_exp3_res, 'data.frame'), as(tax_table(G1_Noco2_mock_exp3)[rownames(DESeq2_G1_Noco2_mock_exp3_res), ], 'matrix'))
+
+#G5_Noco2_mock_exp3
+DESeq2_G5_Noco2_mock_exp3 = phyloseq_to_deseq2(G5_Noco2_mock_exp3, ~Treatment)
+geoMeans = apply(counts(DESeq2_G5_Noco2_mock_exp3), 1, gm_mean)
+DESeq2_G5_Noco2_mock_exp3 = estimateSizeFactors(DESeq2_G5_Noco2_mock_exp3, geoMeans = geoMeans)
+DESeq2_G5_Noco2_mock_exp3 = DESeq(DESeq2_G5_Noco2_mock_exp3, fitType='local')
+DESeq2_G5_Noco2_mock_exp3_res <- results(DESeq2_G5_Noco2_mock_exp3, contrast = c('Treatment', 'G5_Noco2_exp3', 'G5_Mock_exp3'))
+G5_Noco2_mock_exp3_list = as(DESeq2_G5_Noco2_mock_exp3_res, 'data.frame')
+DESeq2_G5_Noco2_mock_exp3_res = DESeq2_G5_Noco2_mock_exp3_res[which(DESeq2_G5_Noco2_mock_exp3_res$padj<0.05&DESeq2_G5_Noco2_mock_exp3_res$log2FoldChange > 0), ]
+sigtab_G5_Noco2_mock_exp3 = cbind(as(DESeq2_G5_Noco2_mock_exp3_res, 'data.frame'), as(tax_table(G5_Noco2_mock_exp3)[rownames(DESeq2_G5_Noco2_mock_exp3_res), ], 'matrix'))
+
+#G9_Noco2_mock_exp3
+DESeq2_G9_Noco2_mock_exp3 = phyloseq_to_deseq2(G9_Noco2_mock_exp3, ~Treatment)
+geoMeans = apply(counts(DESeq2_G9_Noco2_mock_exp3), 1, gm_mean)
+DESeq2_G9_Noco2_mock_exp3 = estimateSizeFactors(DESeq2_G9_Noco2_mock_exp3, geoMeans = geoMeans)
+DESeq2_G9_Noco2_mock_exp3 = DESeq(DESeq2_G9_Noco2_mock_exp3, fitType='local')
+DESeq2_G9_Noco2_mock_exp3_res <- results(DESeq2_G9_Noco2_mock_exp3, contrast = c('Treatment', 'G9_Noco2_exp3', 'G9_Mock_exp3'))
+G9_Noco2_mock_exp3_list = as(DESeq2_G9_Noco2_mock_exp3_res, 'data.frame')
+DESeq2_G9_Noco2_mock_exp3_res = DESeq2_G9_Noco2_mock_exp3_res[which(DESeq2_G9_Noco2_mock_exp3_res$padj<0.05&DESeq2_G9_Noco2_mock_exp3_res$log2FoldChange > 0), ]
+sigtab_G9_Noco2_mock_exp3 = cbind(as(DESeq2_G9_Noco2_mock_exp3_res, 'data.frame'), as(tax_table(G9_Noco2_mock_exp3)[rownames(DESeq2_G9_Noco2_mock_exp3_res), ], 'matrix'))
+
+#Hpa_mock_exp4
+DESeq2_Hpa_mock_exp4 = phyloseq_to_deseq2(Hpa_mock_exp4, ~Treatment)
+geoMeans = apply(counts(DESeq2_Hpa_mock_exp4), 1, gm_mean)
+DESeq2_Hpa_mock_exp4 = estimateSizeFactors(DESeq2_Hpa_mock_exp4, geoMeans = geoMeans)
+DESeq2_Hpa_mock_exp4 = DESeq(DESeq2_Hpa_mock_exp4, fitType='local')
+DESeq2_Hpa_mock_exp4_res <- results(DESeq2_Hpa_mock_exp4, contrast = c('Treatment', 'Hpa_exp4', 'Mock_exp4'))
+Hpa_mock_exp4_list = as(DESeq2_Hpa_mock_exp4_res, 'data.frame')
+DESeq2_Hpa_mock_exp4_res = DESeq2_Hpa_mock_exp4_res[which(DESeq2_Hpa_mock_exp4_res$padj<0.05&DESeq2_Hpa_mock_exp4_res$log2FoldChange > 0), ]
+sigtab_Hpa_mock_exp4 = cbind(as(DESeq2_Hpa_mock_exp4_res, 'data.frame'), as(tax_table(Hpa_mock_exp4)[rownames(DESeq2_Hpa_mock_exp4_res), ], 'matrix'))
+
+#GnoHpa_mock_exp4
+DESeq2_GnoHpa_mock_exp4 = phyloseq_to_deseq2(GnoHpa_mock_exp4, ~Treatment)
+geoMeans = apply(counts(DESeq2_GnoHpa_mock_exp4), 1, gm_mean)
+DESeq2_GnoHpa_mock_exp4 = estimateSizeFactors(DESeq2_GnoHpa_mock_exp4, geoMeans = geoMeans)
+DESeq2_GnoHpa_mock_exp4 = DESeq(DESeq2_GnoHpa_mock_exp4, fitType='local')
+DESeq2_GnoHpa_mock_exp4_res <- results(DESeq2_GnoHpa_mock_exp4, contrast = c('Treatment', 'GnoHpa_exp4', 'Mock_exp4'))
+GnoHpa_mock_exp4_list = as(DESeq2_GnoHpa_mock_exp4_res, 'data.frame')
+DESeq2_GnoHpa_mock_exp4_res = DESeq2_GnoHpa_mock_exp4_res[which(DESeq2_GnoHpa_mock_exp4_res$padj<0.05&DESeq2_GnoHpa_mock_exp4_res$log2FoldChange > 0), ]
+sigtab_GnoHpa_mock_exp4 = cbind(as(DESeq2_GnoHpa_mock_exp4_res, 'data.frame'), as(tax_table(GnoHpa_mock_exp4)[rownames(DESeq2_GnoHpa_mock_exp4_res), ], 'matrix'))
+write.csv(sigtab_GnoHpa_mock_exp4,'sigtab_GnoHpa_mock_exp4.csv')
+
+#G1_Hpa_mock_exp5
+DESeq2_G1_Hpa_mock_exp5 = phyloseq_to_deseq2(G1_Hpa_mock_exp5, ~Treatment)
+geoMeans = apply(counts(DESeq2_G1_Hpa_mock_exp5), 1, gm_mean)
+DESeq2_G1_Hpa_mock_exp5 = estimateSizeFactors(DESeq2_G1_Hpa_mock_exp5, geoMeans = geoMeans)
+DESeq2_G1_Hpa_mock_exp5 = DESeq(DESeq2_G1_Hpa_mock_exp5, fitType='local')
+DESeq2_G1_Hpa_mock_exp5_res <- results(DESeq2_G1_Hpa_mock_exp5, contrast = c('Treatment', 'G1_Hpa_exp5', 'G1_Mock_exp5'))
+G1_Hpa_mock_exp5_list = as(DESeq2_G1_Hpa_mock_exp5_res, 'data.frame')
+DESeq2_G1_Hpa_mock_exp5_res = DESeq2_G1_Hpa_mock_exp5_res[which(DESeq2_G1_Hpa_mock_exp5_res$padj<0.05&DESeq2_G1_Hpa_mock_exp5_res$log2FoldChange > 0), ]
+sigtab_G1_Hpa_mock_exp5 = cbind(as(DESeq2_G1_Hpa_mock_exp5_res, 'data.frame'), as(tax_table(G1_Hpa_mock_exp5)[rownames(DESeq2_G1_Hpa_mock_exp5_res), ], 'matrix'))
+
+#Water_Noco2_mock_exp6
+DESeq2_Water_Noco2_mock_exp6 = phyloseq_to_deseq2(Water_Noco2_mock_exp6, ~Treatment)
+geoMeans = apply(counts(DESeq2_Water_Noco2_mock_exp6), 1, gm_mean)
+DESeq2_Water_Noco2_mock_exp6 = estimateSizeFactors(DESeq2_Water_Noco2_mock_exp6, geoMeans = geoMeans)
+DESeq2_Water_Noco2_mock_exp6 = DESeq(DESeq2_Water_Noco2_mock_exp6, fitType='local')
+DESeq2_Water_Noco2_mock_exp6_res <- results(DESeq2_Water_Noco2_mock_exp6, contrast = c('Treatment', 'Water_Noco2_exp6', 'Mock_exp6'))
+Water_Noco2_mock_exp6_list = as(DESeq2_Water_Noco2_mock_exp6_res, 'data.frame')
+DESeq2_Water_Noco2_mock_exp6_res = DESeq2_Water_Noco2_mock_exp6_res[which(DESeq2_Water_Noco2_mock_exp6_res$padj<0.05&DESeq2_Water_Noco2_mock_exp6_res$log2FoldChange > 0), ]
+sigtab_Water_Noco2_mock_exp6 = cbind(as(DESeq2_Water_Noco2_mock_exp6_res, 'data.frame'), as(tax_table(Water_Noco2_mock_exp6)[rownames(DESeq2_Water_Noco2_mock_exp6_res), ], 'matrix'))
+
+
+sigtab_names <- c('Noco2_mock_exp1', 'Cala2_mock_exp1', 'Mix_mock_exp1','Noco2_mock_exp2', 'Cala2_mock_exp2','G1_Cala2_mock_exp3', 'G5_Cala2_mock_exp3', 'G9_Cala2_mock_exp3','G1_Noco2_mock_exp3', 'G5_Noco2_mock_exp3', 'G9_Noco2_mock_exp3','GnoHpa_mock_exp4', 'Hpa_mock_exp4','G1_Hpa_mock_exp5', 'Water_Noco2_mock_exp6')
+
+for (name in sigtab_names) {
+  sigtab <- get(paste0('sigtab_', name))               
+  sigtab[[name]] <- 1                                 
+  upset_df <- select(sigtab, all_of(name))          
+  upset_df$OTUID <- rownames(sigtab)                
+  
+  assign(paste0('Upset_', name), upset_df)          
+}
+
+
+upset_names <- c('Upset_Noco2_mock_exp1', 'Upset_Cala2_mock_exp1', 'Upset_Mix_mock_exp1','Upset_Noco2_mock_exp2', 'Upset_Cala2_mock_exp2','Upset_G1_Cala2_mock_exp3', 'Upset_G5_Cala2_mock_exp3', 'Upset_G9_Cala2_mock_exp3','Upset_G1_Noco2_mock_exp3', 'Upset_G5_Noco2_mock_exp3', 'Upset_G9_Noco2_mock_exp3','Upset_GnoHpa_mock_exp4', 'Upset_Hpa_mock_exp4','Upset_G1_Hpa_mock_exp5', 'Upset_Water_Noco2_mock_exp6')
+upset_list <- lapply(upset_names, get)
+Upset <- Reduce(function(x, y) merge(x, y, by = 'OTUID', all = TRUE), upset_list)
+Upset[is.na(Upset)]<- 0
+Upset_pot<-Upset[,-13]
+
+
+p <- upset(Upset_pot,
+           nset =50,
+           nintersects = NA,
+           order.by = c('degree','freq'),
+           decreasing = c(TRUE, TRUE),
+           mb.ratio = c(0.5, 0.5),
+           point.size = 3,
+           line.size = 1.5,
+           mainbar.y.label = 'Intersection size',
+           sets.x.label = 'Set Size',
+           main.bar.color = '#2a83a2',
+           sets.bar.color = '#3b7960',
+           text.scale = 2
+)
+p
+
+#filtering almost enriched ASVs in different treatments
+Upset1 <- Upset_pot %>% mutate(Status_in_Hpa_inoculated = rowSums(.[2:ncol(Upset_pot)]))%>% filter(.,Status_in_Hpa_inoculated>8)
+overlap <- Upset1[,-c(3:ncol(Upset1)-1)]
+overlap[,2][overlap[,2] == 14] = 'All'
+overlap[,2][overlap[,2] == 13] = '13(14)'
+overlap[,2][overlap[,2] == 12] = '12(14)'
+overlap[,2][overlap[,2] == 11] = '11(14)'
+overlap[,2][overlap[,2] == 10] = '10(14)'
+overlap[,2][overlap[,2] == 9] = '9(14)'
+colnames(overlap)[1]<-'OTU'
+
+#Data was transformed and relevant ASVs were filtered
+Long_ASV_table_meta_relative_1 <- ASV_table_meta_relative %>%
+  psmelt() %>%
+  left_join(overlap, by = 'OTU') %>%
+  mutate(Status_in_Hpa_inoculated = ifelse(is.na(Status_in_Hpa_inoculated), 'Other', Status_in_Hpa_inoculated)) %>%
+  group_by(OTU, Treatment, Status_in_Hpa_inoculated) %>%
+  summarise(mean_abundance = mean(Abundance), .groups = 'drop') %>%
+  group_by(Treatment, Status_in_Hpa_inoculated) %>%
+  summarise(mean_abundance_2 = sum(mean_abundance), .groups = 'drop') %>%
+  arrange(Status_in_Hpa_inoculated) %>%
+  mutate(mean_abundance_2 = mean_abundance_2 * 100) 
+
+
+#stacked_barplot
+Long_ASV_table_meta_relative_1$Treatment <- factor(Long_ASV_table_meta_relative_1$Treatment, levels = c('Mock_exp1', 'Noco2_exp1', 'Cala2_exp1', 'Mix_exp1', 'Mock_exp2', 'Noco2_exp2', 'Cala2_exp2','G1_Mock_exp3','G1_Noco2_exp3','G1_Cala2_exp3','G5_Mock_exp3','G5_Noco2_exp3','G5_Cala2_exp3', 'G9_Mock_exp3','G9_Noco2_exp3','G9_Cala2_exp3','Mock_exp4','GnoHpa_exp4','Hpa_exp4','G1_Mock_exp5','G1_Hpa_exp5','Mock_exp6','Water_Noco2_exp6'))
+Long_ASV_table_meta_relative_1$Status_in_Hpa_inoculated <- factor(Long_ASV_table_meta_relative_1$Status_in_Hpa_inoculated, levels = c('All', '13(14)','12(14)', '11(14)','10(14)','9(14)','Other'))
+Long_ASV_table_meta_relative_2 <-filter(Long_ASV_table_meta_relative_1,!Treatment %in% c('Mock_exp1','Mock_exp2','G1_Mock_exp3','G5_Mock_exp3','G9_Mock_exp3','Mock_exp4','GnoHpa_exp4','G1_Mock_exp5','Mock_exp6'))
+
+colnames(Long_ASV_table_meta_relative_2)[2]<-'Type'
+
+stacked_barplot <- ggplot(Long_ASV_table_meta_relative_2, aes(x = Treatment, y = mean_abundance_2, fill = Type)) + 
+  scale_y_continuous(name = 'Abundance (%)') +
+  geom_bar(stat = 'identity', color = '#333333') +
+  scale_fill_manual(values = c('All' = '#FF0000','13(14)' = '#FF6000','12(14)' = '#FF9900','11(14)' = '#0000FF','10(14)' = '#33CCFF','9(14)' = '#00FF00','Other' = '#FAF9F6')) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(size = 10, angle = 90, hjust = 1),
+        axis.text.y = element_text(size = 10, angle = 90),
+        axis.title.y = element_text(size = 10))
+
+print(stacked_barplot)
+
+
+
+#genus level stacked_barplot
+all_ASV_tax <- data.frame(OTU = row.names(all_ASV_tax), all_ASV_tax)
+overlap_0<-merge(overlap,all_ASV_tax,by='OTU',all=F)
+overlap_s <- overlap_0[,c(1,2,8)]
+colnames(overlap_s)[3]<-'Taxonomy'
+colnames(overlap_s)[2]<-'type'
+overlap_s$Status_in_Hpa_inoculated<-'Enriched'
+overlap_s$Taxonomy[is.na(overlap_s$Taxonomy)] <- 'Unkonw'
+overlap1<-overlap_s
+overlap1$species <- paste(overlap1$Taxonomy, substr(overlap1$OTU,1,5),sep=' ')
+
+Long_ASV_table_meta_relative <- ASV_table_meta_relative %>% psmelt()
+Long_ASV_table_meta_relative$Abundance <- Long_ASV_table_meta_relative$Abundance * 100
+Long_ASV_table_meta_relative_3 <- left_join(Long_ASV_table_meta_relative, overlap_s, by = 'OTU')
+
+Long_ASV_table_meta_relative_3$Taxonomy[is.na(Long_ASV_table_meta_relative_3$Taxonomy)] <- 'Other'
+Long_ASV_table_meta_relative_3$Status_in_Hpa_inoculated[is.na(Long_ASV_table_meta_relative_3$Status_in_Hpa_inoculated)] <- 'Other'
+long_ASV_table_meta_relative_2_melt <- Long_ASV_table_meta_relative_3 %>%group_by(OTU, Treatment, Taxonomy, Status_in_Hpa_inoculated) %>% summarise(mean_abundance = mean(Abundance))
+
+Enriched <- subset(long_ASV_table_meta_relative_2_melt, Status_in_Hpa_inoculated  == 'Enriched')
+Enriched <- Enriched[order(-Enriched$mean_abundance),]
+Other <- subset(long_ASV_table_meta_relative_2_melt, Status_in_Hpa_inoculated != 'Enriched')
+other_melt <- Other %>%group_by(Treatment, Taxonomy, Status_in_Hpa_inoculated) %>%summarise(mean_abundance = sum(mean_abundance))
+long_ASV_table_meta_relative_3_melt <- rbind(Enriched, other_melt)
+long_ASV_table_meta_relative_3_melt$OTU[is.na(long_ASV_table_meta_relative_3_melt$OTU)] <- 'Other'
+long_ASV_table_meta_relative_3_melt$Taxonomy[is.na(long_ASV_table_meta_relative_3_melt$Taxonomy)] <- 'Other'
+long_ASV_table_meta_relative_3_melt$Treatment <- factor(long_ASV_table_meta_relative_3_melt$Treatment, levels = c('Mock_exp1','Noco2_exp1','Cala2_exp1','Mix_exp1','Mock_exp2','Noco2_exp2', 'Cala2_exp2','G1_Mock_exp3','G1_Noco2_exp3','G1_Cala2_exp3','G5_Mock_exp3','G5_Noco2_exp3','G5_Cala2_exp3','G9_Mock_exp3','G9_Noco2_exp3','G9_Cala2_exp3','Mock_exp4','GnoHpa_exp4','Hpa_exp4','G1_Mock_exp5','G1_Hpa_exp5','Mock_exp6','Water_Noco2_exp6'))
+long_ASV_table_meta_relative_3_melt$Status_in_Hpa_inoculated <- factor(long_ASV_table_meta_relative_3_melt$Status_in_Hpa_inoculated, levels = c('Enriched', 'Other'))
+
+long_ASV_table_meta_relative_3_melt$Taxonomy <- factor(long_ASV_table_meta_relative_3_melt$Taxonomy, levels = c('Acidovorax','Aeromicrobium','Agromyces','Arthrobacter','Brevundimonas','Chryseobacterium','Comamonas','Flavobacterium','Methylophilus','Microbacterium','Nocardioides','Pedobacter','Pseudomonas','Rhizobium','Sphingobacterium','Sphingobium','Sphingomonas','Stenotrophomonas','Xanthomonas','Other'))
+taxColors <- c('Acidovorax'='#F8766D','Aeromicrobium'='#E9842C','Agromyces'='#D69100','Arthrobacter'='#BC9D00','Brevundimonas'='#9CA700','Chryseobacterium'='#6FB000','Comamonas'='#00B813','Flavobacterium'='#00BD61','Methylophilus'='#00C08E','Microbacterium'='#00C0B4','Nocardioides'='#00BDD4','Pedobacter'='#00B5EE','Pseudomonas'='#00A7FF','Rhizobium'='#6796FF','Sphingobacterium'='#BC81FF','Sphingobium'='#E26EF7','Sphingomonas'='#F863DF','Stenotrophomonas'='#FF62BF','Xanthomonas'='#FF6A9A','Other'='#FAF9F6')
+Long_ASV_table_meta_relative_4 <-filter(long_ASV_table_meta_relative_3_melt,!Treatment %in% c('Mock_exp1','Mock_exp2','G1_Mock_exp3','G5_Mock_exp3','G9_Mock_exp3','Mock_exp4','GnoHpa_exp4','G1_Mock_exp5','Mock_exp6'))
+
+stacked_barplot <- ggplot(Long_ASV_table_meta_relative_4, aes(x = Treatment, y = mean_abundance, fill = Taxonomy))+ 
+  scale_y_continuous(name = 'Abundance (%)') +
+  geom_bar(stat = 'identity', color = '#333333') +
+  scale_fill_manual(values = taxColors) +
+  guides(fill = guide_legend(reverse = TRUE))+
+  theme_bw()
+print(stacked_barplot)
+
+
+#Merge results into heat maps
+heatmap<-merge(long_ASV_table_meta_relative_3_melt,overlap1,by='OTU')
+heatmap<-heatmap[,-c(1,3,4,6,7,8)]
+heatmap<-spread(heatmap,key='Treatment',value='mean_abundance')
+heatmap_order<-heatmap
+heatmap_order[,-1][heatmap_order[,-1]>0]=1
+heatmap_order <-heatmap_order %>% mutate(num = rowSums(.[2:ncol(heatmap_order)]))
+heatmap<-merge(heatmap,heatmap_order[,c(1,ncol(heatmap_order))],by='species')
+heatmap<-heatmap[order(heatmap$num,decreasing=T),]
+rownames(heatmap) <- heatmap[,1] 
+heatmap <- select(heatmap,-c(1,ncol(heatmap)))
+
+heatmap<- (heatmap-min(heatmap))/(max(heatmap)-min(heatmap)) #normalization
+
+#treatment
+annotation_col1 = data.frame(Experiment = factor(rep(c('Exp1','Exp2','Exp3','Exp4','Exp5','Exp6'), c(4,3,9,3,2,2))), row.names = colnames(heatmap[, c(1:ncol(heatmap))])) 
+
+
+
+#basic information
+#Label undetected ASVs as 3 and detected ASVs as 0
+miss<-heatmap_order
+miss[,-c(1,ncol(miss))][miss[,-c(1,ncol(miss))]==0]= 3
+miss[,-c(1,ncol(miss))][miss[,-c(1,ncol(miss))]==1]= 0
+miss<-miss[order(miss$num,decreasing=T),]
+miss<-miss[,-ncol(miss)]
+
+#Label significant enrichment ASVs as 5 and not significant ASVs as 0
+Upset_sig<-merge(Upset,Upset1[,c(1,ncol(Upset1))],by='OTUID')
+colnames(Upset_sig) <- gsub('_mock', '', colnames(Upset_sig))
+Upset2<-Upset_sig
+colnames(Upset2)[1]<-'OTU'
+sig<-merge(Upset2,all_ASV_tax,by='OTU')
+sig$species<-paste(sig$Genus, substr(sig$OTU,1,5),sep=' ')
+sig<-sig[,-c(18:ncol(sig)-1)]
+sig<-merge(sig[,-1],heatmap_order[,-c(3:ncol(heatmap_order)-1)],by='species')
+sig<-sig[order(sig$num,decreasing=T),]
+sig<-sig[,-ncol(sig)]
+sig[,-1][sig[,-1]==1]= 5
+sig[,-1][sig[,-1]==0]= 0
+
+#Add the above case to calculate, 3 is undetected ASVs, 5 is significant enriched ASVs, and 0 is not significant ASVs 
+anno<-power_left_join(sig, miss, by = 'species', conflict = `+`)
+anno[,-1][anno[,-1]==3]='X' #undetected ASVs
+anno[,-1][anno[,-1]==5]='*' #significant
+anno[,-1][anno[,-1]==0]=''  #not sigificant
+rownames(anno) <- anno[,1] 
+anno <- select(anno,-1)
+anno<- anno[, c('Mock_exp1','Noco2_exp1', 'Cala2_exp1', 'Mix_exp1','Mock_exp2', 'Noco2_exp2', 'Cala2_exp2','G1_Mock_exp3','G1_Noco2_exp3','G1_Cala2_exp3','G5_Mock_exp3','G5_Noco2_exp3','G5_Cala2_exp3','G9_Mock_exp3','G9_Noco2_exp3','G9_Cala2_exp3','Mock_exp4','GnoHpa_exp4','Hpa_exp4','G1_Mock_exp5','G1_Hpa_exp5','Mock_exp6','Water_Noco2_exp6')]
+
+
+heat<-pheatmap(heatmap,
+               annotation_col = annotation_col1,
+               display_numbers = anno,
+               fontsize_number=20,
+               number_color='#333333',
+               breaks=seq(0,1,0.01),
+               gaps_col=c(4,7,16,19,21),
+               color = colorRampPalette(colors = c('white','red'))(100),
+               cluster_cols = F,
+               cluster_rows = F,
+               border_color = 'grey'
+)
+heat
+
+#Fig. S1A
+
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(pheatmap)
+
+
+heatmap<-merge(Long_ASV_table_meta_relative_4,overlap1,by='OTU')
+heatmap<-heatmap[,-c(1,3,4,6,7,8)]
+heatmap<-spread(heatmap,key="Treatment",value="mean_abundance")
+heatmap_order<-heatmap
+heatmap_order[,-1][heatmap_order[,-1]>0]=1
+heatmap_order <-heatmap_order %>% mutate(num = rowSums(.[2:ncol(heatmap_order)]))
+heatmap<-merge(heatmap,heatmap_order[,c(1,ncol(heatmap_order))],by='species')
+heatmap<-heatmap[order(heatmap$num,decreasing=T),]
+rownames(heatmap) <- heatmap[,1] 
+heatmap <- select(heatmap,-c(1,ncol(heatmap)))
+annotation_col1 = data.frame(Experiment = factor(rep(c('Exp1','Exp2','Exp3','Exp4','Exp5','Exp6'), c(4,3,9,3,2,2))), row.names = colnames(heatmap[, c(1:ncol(heatmap))])) 
+heatmap<- (heatmap-min(heatmap))/(max(heatmap)-min(heatmap))
+
+miss<-heatmap_order
+miss[,-c(1,ncol(miss))][miss[,-c(1,ncol(miss))]==0]= 3
+miss[,-c(1,ncol(miss))][miss[,-c(1,ncol(miss))]==1]= 0
+miss<-miss[order(miss$num,decreasing=T),]
+miss<-miss[,-ncol(miss)]
+
+
+Upset_sig<-merge(Upset,Upset1[,c(1,ncol(Upset1))],by='OTUID')
+Upset2<-Upset_sig
+colnames(Upset2)[1]<-'OTU'
+sig<-merge(Upset2,all_ASV_tax,by='OTU')
+sig$species<-paste(sig$Genus, substr(sig$OTU,1,5),sep=" ")
+sig<-sig[,-c(18:ncol(sig)-1)]
+sig<-merge(sig[,-1],heatmap_order[,-c(3:ncol(heatmap_order)-1)],by='species')
+sig<-sig[order(sig$num,decreasing=T),]
+sig<-sig[,-ncol(sig)]
+sig[,-1][sig[,-1]==1]= 5
+
+# sig$Mock_exp1<-miss$Mock_exp1
+# sig$Mock_exp2<-miss$Mock_exp2
+# sig$G1_Mock_exp3<-miss$G1_Mock_exp3
+# sig$G5_Mock_exp3<-miss$G5_Mock_exp3
+# sig$G9_Mock_exp3<-miss$G9_Mock_exp3
+# sig$Mock_exp4<-miss$Mock_exp4
+# sig$G1_Mock_exp5<-miss$G1_Mock_exp5
+# sig$Mock_exp6<-miss$Mock_exp6
+sig[,-1][sig[,-1]==0]= 0
+
+#View(sig)
+
+#devtools::install_github("moodymudskipper/powerjoin")
+library(powerjoin)
+library(dplyr)
+anno<-power_left_join(sig, miss, by = "species", conflict = `+`)
+anno[,-1][anno[,-1]==3]='X'
+anno[,-1][anno[,-1]==5]='*'
+anno[,-1][anno[,-1]==0]=''
+rownames(anno) <- anno[,1] 
+anno <- select(anno,-1)
+anno<- anno[, c('Mock_exp1', 
+                'Noco2_exp1', 
+                'Cala2_exp1', 
+                'Mix_exp1',
+                'Mock_exp2', 
+                'Noco2_exp2', 
+                'Cala2_exp2',
+                "G1_Mock_exp3",
+                'G1_Noco2_exp3',
+                'G1_Cala2_exp3',
+                "G5_Mock_exp3",
+                'G5_Noco2_exp3',
+                'G5_Cala2_exp3',
+                "G9_Mock_exp3",
+                'G9_Noco2_exp3',
+                'G9_Cala2_exp3',
+                "Mock_exp4",
+                'GnoHpa_exp4',
+                'Hpa_exp4',
+                "G1_Mock_exp5",
+                'G1_Hpa_exp5',
+                "Mock_exp6",
+                'Water_Noco2_exp6')]
+
+heat<-pheatmap(heatmap,
+               annotation_col = annotation_col1,
+               display_numbers = anno,
+               fontsize_number=20,
+               number_color='#333333',
+               
+               #show_rownames = T,
+               breaks=seq(0,1,0.01),
+               gaps_col=c(4,7,16,19,21),
+               color = colorRampPalette(colors = c('white',"red"))(100),
+               #scale = "row",
+               cluster_cols = F,
+               cluster_rows = F,
+               border_color = 'grey',
+)
+heat
+
+#Fig. S1B
+library(circlepackeR)
+library(data.tree)
+library(ggraph)
+library(igraph)
+library(tidyverse)
+library(viridis)
+
+#install.packages('circlepackeR')
+all_metadate_table<-read.csv('all_metadate_table.csv', header=T,row.names = 1,check.names=F)
+all_ASV_num<-read.csv('all_ASV_num.csv', check.names=F,header=T,row.names = 1)
+all_ASV_tax<-read.csv('all_ASV_tax.csv', check.names=F,header=T)
+overlap<-read.csv('list.csv', check.names=F,header=T)
+
+Long_samples_relative<- read.csv('Long_ASV_table_meta_relative_6.csv', header=T,check.names=F)
+Long_samples_relative<-filter(Long_samples_relative,!Treatment%in% c('Mock_exp1',
+                                                                     'Mock_exp2',
+                                                                     'G1_Mock_exp3',
+                                                                     'G5_Mock_exp3',
+                                                                     "G9_Mock_exp3",
+                                                                     "Mock_exp4",
+                                                                     'GnoHpa_exp4',
+                                                                     "G1_Mock_exp5",
+                                                                     'Mock_exp6'))
+wide_samples_relative<-spread(Long_samples_relative,key="Treatment",value="mean_abundance")
+wide_samples_relative<-wide_samples_relative[-nrow(wide_samples_relative),-c(2:3)]
+
+
+wide_samples_relative_mean <-wide_samples_relative %>% mutate(mean = rowMeans(.[2:ncol(wide_samples_relative)]))
+colnames(all_ASV_tax)[1]<-'OTU'
+selection<-merge(wide_samples_relative_mean,all_ASV_tax,by = 'OTU')
+selection<-selection[,-c(2:15)]
+selection<-merge(overlap,selection,by='OTU')
+selection<-selection[,-c(1:4)]
+colnames(selection)[1]<-'OTU'
+
+taxLevels <- c("Phylum", "Order", "OTU")
+reordertax <- c("Phylum", "Order", "OTU", "mean")
+selection4 <- selection[reordertax]
+df <- selection4
+
+
+
+library(magrittr)
+treemapFromDataFrame <- function(df) {
+  nc <- ncol(df)
+  if (nc > 2) {
+    tmlist <- vector(mode = "list", length <-  nc - 1)
+    for (i in 1:(nc - 1)) {
+      tmlist[[i]] <- treemapFromDataFrame(df[i:(i + 1)])
+    }
+    res.tm <- do.call(rbind, tmlist)
+    return(res.tm)
+  } else {
+    df[[1]] %<>% as.character()
+    df[[2]] %<>% as.character()
+    froms <- unique(df[[1]])
+    fromslist <- sapply(froms, function(x) df[df[[1]] == x, 2,drop=TRUE], simplify = FALSE)
+    #x = as.character(x)
+    #fromslist[[x]] = as.character(fromslist[[x]])
+    res.df <- lapply(froms, function(x) data.frame(from = as.character(x), to = as.character(fromslist[[x]]))) %>%
+      do.call(rbind, .) %>% .[!duplicated.data.frame(.), ]
+    return(res.df)
+  }
+}
+
+#sel <- rf.b[1:ar1, ] #5% highest
+#ts <- sel[, c(taxLevels, "MSE")]
+#ts[ts == "Unclassified"] <- NA
+#ts$Species <- sel$Feature.ID
+#ts[is.na(ts)] <- paste0("random_", stringi::stri_rand_strings(sum(is.na(ts)), 20))
+#ts$Phylum %<>% paste(ts$Kingdom, "-", .)
+#edges <-  treemapFromDataFrame(ts[, taxLevels[-1]])
+edges <-  treemapFromDataFrame(df[,-4])
+edges$to <- as.character(edges$to)
+edges$from <- as.character(edges$from)
+vertices <- unique(c(as.character(edges[[1]]), as.character(edges[[2]])))
+namedisp <- vertices
+#namedisp[!(namedisp %in% sel[1:ar2, "Genus"])] <- NA
+sizes <- sapply(vertices, function(x) df[which(df == x, arr.ind = T)[1], "mean", drop = T] %>% sum)
+phyla <- sapply(vertices, function(x) df[which(df == x, arr.ind = T)[1], "Phylum", drop = T])
+order <- sapply(vertices, function(x) df[which(df == x, arr.ind = T)[1], "Order", drop = T])
+#genus <- sapply(vertices, function(x) df[which(df == x, arr.ind = T)[1], "Genus", drop = T])
+otu <- sapply(vertices, function(x) df[which(df == x, arr.ind = T)[1], "OTU", drop = T]) 
+#phyla %<>% names %>% sapply(function(x) x == phyla[x])
+#family %<>% names %>% sapply(function(x) x == family[x])
+#genus %<>% names %>% sapply(function(x) x == genus[x])
+#otu %<>% names %>% sapply(function(x) x == otu[x])
+#kingdom <- sapply(vertices, \(x) ts[which(ts == x, arr.ind = T)[1], "Kingdom", drop = T])
+linewidth <- (!is.na(namedisp))
+vertices2 <- data.frame(name = vertices, size = sizes, phylum = phyla, order = order, otu = otu,nameDisp = namedisp, lineWidth = linewidth)
+vertices2$nameDisp[!(otu %>% names %>% sapply(function(x) x == otu[x]))] <- NA
+#vertices2$nameDisp[(otu %>% names %>% sapply(function(x) x == otu[x]))] <- TRUE
+#vertices3 <- filter(vertices2,!nameDisp%in% FALSE)
+
+
+#vertices2$nameDisp[!((genus %>% names %>% sapply(function(x) x == genus[x]))|(family %>% names %>% sapply(function(x) x == family[x])))] <- NA
+
+
+library(ggraph)
+g <- tidygraph::tbl_graph(vertices2, edges)
+#colorOrder <- sizes[names(sizes) %in% ts$Phylum] %>% names %>% sort %>% sapply(\(x) which(x == (sizes[names(sizes) %in% ts$Phylum] %>% sort(decreasing = T) %>% names)))
+#pal_circles <- pal_simpsons()(16)[c(10, 8, 6, 7, 9, 1, 11, 13, 14, 16)]
+
+
+
+set.seed(6)
+bubbleplot <- ggraph(g, layout = "circlepack",
+                     weight = size/min(size)) +
+  geom_node_circle(aes(color = phylum, fill = phylum), linetype = "dashed",alpha = 0.1, linewidth = 2) +
+  #geom_node_circle(aes(fill = order),alpha = 0.1, linewidth = .5) +
+  #geom_node_circle(aes(fill = order),alpha = .3, linewidth = .5) +
+  #geom_node_circle(aes(fill = order),
+  #                alpha = .5, linewidth = .5) +
+  geom_node_text(aes(label = nameDisp), size = 3,
+                 repel = T, max.overlaps = 15,
+                 min.segment.length = .25,
+                 force = .01,
+                 force_pull = 100,
+                 position = "identity",
+                 show.legend = F,
+                 #fontface = "italic",
+                 fontface = "bold") +
+  #scale_fill_manual(values = pal_circles) +
+  #scale_color_manual(values = pal_circles) +
+  #scale_linewidth_manual() +
+  coord_fixed() +
+  theme(panel.background = element_rect(fill = "white"),
+        text = element_text(size = 10,face = "bold"),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 15,face = "bold")
+  )
+
+bubbleplot
+ggsave(file="bubbleplot_HAM_abundancesphyllo.pdf", plot=bubbleplot, width=10, height=10)
+
+## Fig. 2 ####
+library(DESeq2)
+library(phyloseq)
+library(vegan)
+library(devtools)
+library(pairwiseAdonis)
+library(DescTools)
+library(data.table)
+library(textshape)
+library(scales)
+library(picante)
+library(plyr)
+library(stringr)
+library(mixOmics)
+library(cowplot)
+library(UpSetR)
+library(ggpubr)
+library(ggplot2)
+library(multcompView)
+library(dplyr)
+
+setwd("C:/Users/4255607/OneDrive - Universiteit Utrecht/PhD/Experiments/Chapter 4/Figures chapter 4/Sequencing data chapter 4 neat/Passaging experiment")
+
+metadata <- import_qiime_sample_data("Metadata_5_gen_exp.txt")
+ASV_table <- import_biom(BIOMfilename = "5passages_feature_table_filtered_457_6.biom", treefilename = "tree.nwk") #not rarified
+reference_seqs <- Biostrings::readDNAStringSet(file = "dna-sequences.fasta", format = "fasta", nrec = -1L, skip = 0L, seek.first.rec = FALSE, use.names = TRUE)
+ASV_table_meta <- merge_phyloseq(ASV_table, metadata, reference_seqs)
+colnames(tax_table(ASV_table_meta)) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+ASV_table_meta_no_salini1 <- subset_samples(ASV_table_meta, Timepoint != "week_0")
+ASV_table_meta_no_salini <- subset_taxa(ASV_table_meta_no_salini1, Genus != "Salinibacter" | is.na(Genus))
+
+vec_subset <- c("M12w5", "M11w4", "M11w5", "M2w5", "M4w5", "M9w5", "U2w1") #"M10w5", 
+ASV_table_meta_no_salini <- subset_samples(ASV_table_meta_no_salini, !(SampleID %in% vec_subset))
+
+samples_relative = transform_sample_counts(ASV_table_meta_no_salini, function(x) x/sum(x))
+
+theme_set(theme_bw())
+
+##Fig. 3A
+samples_relative.ord <- ordinate(samples_relative, "PCoA", "bray") #unweighted jaccard requires binary=TRUE
+samples_relative_bray_PCoA_1 = plot_ordination(samples_relative, samples_relative.ord, type="samples", color="Treatment") #, axes = 2:3)
+print(samples_relative_bray_PCoA_1)
+
+samples_relative_bray_PCoA_4 <- samples_relative_bray_PCoA_1 +
+  #geom_text(aes(label=Sample),hjust=0, vjust=0)+
+  #ggtitle("Generation 9") +
+  #theme(plot.title = element_text(hjust = 0.5)) +
+  facet_grid( ~ Timepoint) +
+  #theme(legend.position = "none")+
+  scale_color_manual(values=c("Mock" = "blue","Hpa" = "red", "gnoHpa" = "orange", "Untreated" = "black"))+ #, "#66CC33", "#FF33CC")) + #, "#66CC33", "lightblue", "blue", "#FF33CC")) +
+  #geom_hline(yintercept=-0.075, linetype="dashed", color = "grey", size=2) +
+  #annotate(geom="text", x=0.1, y=0.1, label="MPIPZ", color="grey", size = 7) +
+  #annotate(geom="text", x=0.1, y=-0.25, label="UU", color="grey", size = 7) +
+  #geom_point(aes(fill=Treatment), size=4, colour="black", pch=21) #+
+  stat_ellipse()
+print(samples_relative_bray_PCoA_4)
+ggsave(file="PCoA_alldata_facet_timepoint.svg", plot=samples_relative_bray_PCoA_4, width=12, height=3.5)
+
+subset_week <- subset_samples(samples_relative, Timepoint == "week_1")
+bray <- phyloseq::distance(subset_week, method = "bray")
+sampledf <- data.frame(sample_data(subset_week))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+pairwise.adonis(x = bray, factors = sample_data(subset_week)$Treatment,
+                sim.method = "bray", perm = 9999, p.adjust.m = "fdr")
+
+subset_week <- subset_samples(samples_relative, Timepoint == "week_2")
+bray <- phyloseq::distance(subset_week, method = "bray")
+sampledf <- data.frame(sample_data(subset_week))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+pairwise.adonis(x = bray, factors = sample_data(subset_week)$Treatment,
+                sim.method = "bray", perm = 9999, p.adjust.m = "fdr")
+
+subset_week <- subset_samples(samples_relative, Timepoint == "week_3")
+bray <- phyloseq::distance(subset_week, method = "bray")
+sampledf <- data.frame(sample_data(subset_week))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+pairwise.adonis(x = bray, factors = sample_data(subset_week)$Treatment,
+                sim.method = "bray", perm = 9999, p.adjust.m = "fdr")
+
+subset_week <- subset_samples(samples_relative, Timepoint == "week_4")
+bray <- phyloseq::distance(subset_week, method = "bray")
+sampledf <- data.frame(sample_data(subset_week))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+pairwise.adonis(x = bray, factors = sample_data(subset_week)$Treatment,
+                sim.method = "bray", perm = 9999, p.adjust.m = "fdr")
+
+subset_week <- subset_samples(samples_relative, Timepoint == "week_5")
+bray <- phyloseq::distance(subset_week, method = "bray")
+sampledf <- data.frame(sample_data(subset_week))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+pairwise.adonis(x = bray, factors = sample_data(subset_week)$Treatment,
+                sim.method = "bray", perm = 9999, p.adjust.m = "fdr")
+
+#Fig. S3: create excel file with R2 values passaging lineages compared to untreated
+R2_Pvalue <- read.csv("R2_Pvalue_vs_untreated.csv", sep = ';')
+
+vec_label <- c("1", "2", "3", "4", "5")
+plot <- ggplot(R2_Pvalue, aes(y=R2, x=Timepoint, color= Treatment)) +
+  geom_point(shape=16, alpha=1, size=4)+
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.text=element_text(size=13, )) +
+  scale_color_manual(values=c("Mock" = "blue","Hpa" = "red", "gnoHpa" = "orange", "Untreated" = "black"))+
+  #facet_grid(~Treatment)+
+  expand_limits(y = c(0,0.6))+
+  geom_line(aes(x = Timepoint, y = R2, group = Treatment), size = 1, alpha = 0.5) +
+  #coord_flip() +
+  #scale_color_manual(red)+
+  xlab("Passage") +
+  #scale_x_discrete(labels= vec_label)+
+  ylab("R2")+
+  theme(axis.text.x=element_text(angle = 0, hjust = 0.5, size = 10))
+print(plot)
+ggsave(file="R2_values_vs_untreated.svg", plot=plot, width=4, height=2)
+
+#Fig. 3B: create excel file with R2 values uninfected vs gnoHpa passaging lineages
+R2_Pvalue <- read.csv("R2_Pvalue_mock_vs_gnoHpa_PCoA.csv", sep = ';')
+
+plot <- ggplot(R2_Pvalue, aes(y=R2, x=Timepoint)) +
+  geom_point(shape=16, alpha=1, size=4)+
+  geom_line(aes(x = Timepoint, y = R2), size = 1, alpha = 0.5) +
+  scale_color_manual(values=c('Yes'='red','No'='blue'))+
+  expand_limits(y = c(0,0.125))+
+  xlab("week") +
+  ylab("R2")
+print(plot)
+ggsave(file="mock_vs_gnoHpa_R2_Pvalues.svg", plot=plot, width=2, height=2)
+
+## Fig. 3C
+#criterium 1: eniched gnoHpa vs uninfected
+##differential abundance testing
+phyloseq_filter_prevalence <- function(physeq, prev.trh = 0.25, abund.trh = NULL, threshold_condition = "OR", abund.type = "total"){
+  
+  ## Threshold validation
+  if(prev.trh > 1 | prev.trh < 0){ stop("Prevalence threshold should be non-negative value in the range of [0, 1].\n") }
+  if(!is.null(abund.trh)){ 
+    if(abund.trh <= 0){ stop("Abundance threshold should be non-negative value larger 0.\n") }
+  }
+  
+  ## Check for the low-prevalence species (compute the total and average prevalences of the features in each phylum)
+  prevdf_smr <- function(prevdf){
+    ddply(prevdf, "Phylum", function(df1){ data.frame(Average = mean(df1$Prevalence), Total = sum(df1$Prevalence))})
+  }
+  # prevdf_smr( prevalence(physeq) )
+  
+  ## Check the prevalence threshold
+  # phyloseq_prevalence_plot(prevdf, physeq)
+  
+  ## Define prevalence threshold as % of total samples
+  ## This function is located in 'phyloseq_prevalence_plot.R' file
+  prevalenceThreshold <- prev.trh * phyloseq::nsamples(physeq)
+  
+  ## Calculate prevalence (number of samples with OTU) and OTU total abundance
+  prevdf <- prevalence(physeq)
+  
+  ## Get the abundance type
+  if(abund.type == "total") { prevdf$AbundFilt <- prevdf$TotalAbundance }
+  if(abund.type == "mean")  { prevdf$AbundFilt <- prevdf$MeanAbundance }
+  if(abund.type == "median"){ prevdf$AbundFilt <- prevdf$MedianAbundance }
+  
+  ## Which taxa to preserve
+  if(is.null(abund.trh)) { tt <- prevdf$Prevalence >= prevalenceThreshold }
+  if(!is.null(abund.trh)){
+    ## Keep OTU if it either occurs in many samples OR it has high abundance
+    if(threshold_condition == "OR"){
+      tt <- (prevdf$Prevalence >= prevalenceThreshold | prevdf$AbundFilt >= abund.trh)
+    }
+    
+    ## Keep OTU if it occurs in many samples AND it has high abundance
+    if(threshold_condition == "AND"){
+      tt <- (prevdf$Prevalence >= prevalenceThreshold & prevdf$AbundFilt >= abund.trh)
+    }
+  }
+  
+  ## Extract names for the taxa we whant to keep
+  keepTaxa <- rownames(prevdf)[tt]
+  
+  ## Execute prevalence filter
+  res <- phyloseq::prune_taxa(keepTaxa, physeq)
+  return(res)
+}
+#
+prevalence <- function(physeq, add_tax = TRUE){
+  
+  ## Check if taxa are rows
+  trows <- taxa_are_rows(physeq)
+  
+  ## Extract OTU table
+  otutab <- as.data.frame(otu_table(physeq))
+  
+  ## Transpose OTU table (species should be arranged by rows)
+  if(trows == FALSE){
+    otutab <- t(otutab)
+  }
+  
+  ## Estimate prevalence (number of samples with OTU present)
+  prevdf <- apply(X = otutab,
+                  # MARGIN = ifelse(trows, yes = 1, no = 2),  # for a non-transposed data
+                  MARGIN = 1,
+                  FUN = function(x){sum(x > 0)})
+  
+  ## Add total and average read counts per OTU
+  prevdf <- data.frame(Prevalence = prevdf,
+                       TotalAbundance = taxa_sums(physeq),
+                       MeanAbundance = rowMeans(otutab),
+                       MedianAbundance = apply(otutab, 1, median))
+  
+  ## Add taxonomy table
+  if(add_tax == TRUE && !is.null(tax_table(physeq, errorIfNULL = F))){
+    prevdf <- cbind(prevdf, tax_table(physeq))
+  }
+  return(prevdf)
+}
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Treatment == "Mock" | Treatment == "gnoHpa")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Timepoint == 'week_2')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Treatment)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Treatment_Mock_vs_gnoHpa")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_week2_Mock_gnoHpa.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Treatment == "Mock" | Treatment == "gnoHpa")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Timepoint == 'week_3')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Treatment)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Treatment_Mock_vs_gnoHpa")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_week3_Mock_gnoHpa.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Treatment == "Mock" | Treatment == "gnoHpa")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Timepoint == 'week_4')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Treatment)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Treatment_Mock_vs_gnoHpa")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_week4_Mock_gnoHpa.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Treatment == "Mock" | Treatment == "gnoHpa")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Timepoint == 'week_5')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.315, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Treatment)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Treatment_Mock_vs_gnoHpa")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_week5_Mock_gnoHpa.csv")
+
+# For ANCOM-bc
+library(microbiome)
+library(nloptr)
+
+# Data Pre-Processing
+feature_table_pre_process = function(feature.table, meta.data, sample.var, group.var, 
+                                     zero.cut = 0.90, lib.cut = 1000, neg.lb){
+  feature.table = data.frame(feature.table, check.names = FALSE)
+  meta.data = data.frame(meta.data, check.names = FALSE)
+  # Drop unused levels
+  meta.data[] = lapply(meta.data, function(x) if(is.factor(x)) factor(x) else x)
+  
+  sample.ID = colnames(feature.table)
+  meta.data = meta.data[match(sample.ID, meta.data[, sample.var]), ]
+  
+  # 1. Identify outliers within each taxon
+  group = factor(meta.data[, group.var])
+  group.name = levels(group)
+  grp.ind.origin = lapply(1:nlevels(group), function(i) which(group == group.name[i]))
+  n.grp.origin = length(grp.ind.origin)
+  n.samp.grp.origin = sapply(grp.ind.origin, length)
+  feature.table = feature.table[, unlist(grp.ind.origin)]
+  
+  z = log(feature.table + 1)
+  f = z; f[f == 0] = NA; f = colMeans(f, na.rm = T)
+  f.mean = unlist(tapply(f, rep(1:n.grp.origin, n.samp.grp.origin), mean))
+  e = f-rep(f.mean, n.samp.grp.origin)
+  y = t(t(z) - e)
+  
+  outlier_check = function(x){
+    mu1 = quantile(x, 0.25); mu2 = quantile(x, 0.75)
+    sigma1 = quantile(x, 0.75)-quantile(x, 0.25); sigma2 = sigma1
+    pi = 0.75
+    n = length(x)
+    epsilon = 100
+    tol = 1e-5
+    score = pi*dnorm(x, mean = mu1, sd = sigma1)/((1-pi)*dnorm(x, mean = mu2, sd = sigma2))
+    while (epsilon > tol) {
+      grp1.ind = score >= 1
+      mu1.new = mean(x[grp1.ind]); mu2.new = mean(x[!grp1.ind])
+      sigma1.new = sd(x[grp1.ind]); if(is.na(sigma1.new)) sigma1.new = 0
+      sigma2.new = sd(x[!grp1.ind]); if(is.na(sigma2.new)) sigma2.new = 0
+      pi.new = sum(grp1.ind)/n
+      
+      para = c(mu1.new, mu2.new, sigma1.new, sigma2.new, pi.new)
+      if(any(is.na(para))) break
+      
+      score = pi.new*dnorm(x, mean = mu1.new, sd = sigma1.new)/
+        ((1-pi.new)*dnorm(x, mean = mu2.new, sd = sigma2.new))
+      
+      epsilon = sqrt((mu1-mu1.new)^2 + (mu2-mu2.new)^2 + 
+                       (sigma1-sigma1.new)^2 + (sigma2-sigma2.new)^2 + (pi-pi.new)^2)
+      mu1 = mu1.new; mu2 = mu2.new; sigma1 = sigma1.new; sigma2 = sigma2.new; pi = pi.new
+    }
+    
+    if(mu1 + 1.96*sigma1 < mu2 - 1.96*sigma2){
+      if(pi > 0.85){
+        out.ind = (!grp1.ind)
+      }else if(pi < 0.15){
+        out.ind = grp1.ind
+      }else{
+        out.ind = rep(FALSE, n)
+      }
+    }else{
+      out.ind = rep(FALSE, n)
+    }
+    return(out.ind)
+  }
+  feature.table.out = t(apply(y, 1, function(i)
+    unlist(tapply(i, rep(1:n.grp.origin, n.samp.grp.origin), function(j) outlier_check(j)))))
+  feature.table[feature.table.out] = NA
+  
+  # 2. Discard taxa with zeros  >=  zero.cut
+  taxa.zero.prop = apply(feature.table, 1, function(x) sum(x == 0, na.rm = T)/length(x[!is.na(x)]))
+  filter.taxa = which(taxa.zero.prop >= zero.cut)
+  if(length(filter.taxa)>0){
+    feature.table = feature.table[-filter.taxa, ]
+  }
+  
+  # 3. Discard samples with library size < lib.cut
+  library.size = colSums(feature.table, na.rm = T)
+  sample.ID = colnames(feature.table)
+  meta.data = meta.data[match(sample.ID, meta.data[, sample.var]), ]
+  
+  if(any(library.size<lib.cut)){
+    filter.subject = which(library.size<lib.cut)
+    feature.table = feature.table[, -filter.subject]
+    meta.data = meta.data[-filter.subject, ]
+  }
+  
+  # 4. Re-order the OTU table
+  group = factor(meta.data[, group.var])
+  group.name = levels(group)
+  grp.ind = lapply(1:nlevels(group), function(i) which(group == group.name[i]))
+  n.grp = length(grp.ind)
+  n.samp.grp = sapply(grp.ind, length)
+  
+  n.taxa = nrow(feature.table)
+  taxa.id = rownames(feature.table)
+  n.samp = ncol(feature.table)
+  
+  # 5. Identify taxa with structure zeros
+  present.table = as.matrix(feature.table)
+  present.table[is.na(present.table)] = 0
+  present.table[present.table != 0] = 1
+  
+  p.hat.mat = t(apply(present.table, 1, function(x)
+    unlist(tapply(x, rep(1:n.grp, n.samp.grp), function(y) mean(y, na.rm = T)))))
+  sample.size = t(apply(feature.table, 1, function(x)
+    unlist(tapply(x, rep(1:n.grp, n.samp.grp), function(y) length(y[!is.na(y)])))))
+  p.hat.lo.mat = p.hat.mat - 1.96 * sqrt(p.hat.mat*(1 - p.hat.mat)/sample.size)
+  colnames(p.hat.mat) = levels(group)
+  colnames(p.hat.lo.mat) = levels(group)
+  
+  struc.zero = matrix(0, nrow = n.taxa, ncol = n.grp)
+  struc.zero[p.hat.mat == 0] = 1
+  # Whether we need to classify a taxon into structural zero by its negative lower bound?
+  if(neg.lb) struc.zero[p.hat.lo.mat <= 0] = 1
+  rownames(struc.zero) = taxa.id
+  colnames(struc.zero) = paste0("structural.zero (", levels(group), ")")
+  
+  # Entries considered to be structural zeros are set to be 0s
+  ind.zero = struc.zero[, rep(1:n.grp, times = n.samp.grp)]
+  feature.table = feature.table * (1 - ind.zero)
+  
+  # 6. Return results
+  res = list(feature.table = feature.table, library.size = library.size, 
+             group.name = group.name, group.ind = grp.ind, structure.zeros = struc.zero)
+  return(res)
+}
+
+# ANCOM-BC main function
+ANCOM_BC = function(feature.table, grp.name, grp.ind, struc.zero, adj.method = "bonferroni",
+                    tol.EM = 1e-5, max.iterNum = 100, perNum = 1000, alpha = 0.05){
+  n.taxa.raw = nrow(feature.table)
+  taxa.id.raw = rownames(feature.table)
+  n.samp = ncol(feature.table)
+  sample.id = colnames(feature.table)
+  
+  n.grp = length(grp.ind)
+  n.samp.grp = sapply(grp.ind, length)
+  
+  ### 0. Discard taxa with structural zeros for the moment
+  comp.taxa.pos = which(apply(struc.zero, 1, function(x) all(x == 0))) # position of complete taxa (no structural zeros)
+  O = feature.table[comp.taxa.pos, ]
+  n.taxa = nrow(O)
+  taxa.id = rownames(O)
+  n.samp = ncol(O)
+  y = as.matrix(log(O + 1))
+  
+  ### 1. Initial estimates of sampling fractions and mean absolute abundances
+  mu = t(apply(y, 1, function(i) tapply(i, rep(1:n.grp, n.samp.grp), function(j)
+    mean(j, na.rm = T))))
+  d = colMeans(y - mu[, rep(1:n.grp, times = n.samp.grp)], na.rm = T)
+  
+  ## Iteration in case of missing values of y
+  iterNum = 0
+  epsilon = 100
+  while (epsilon > tol.EM & iterNum < max.iterNum) {
+    # Updating mu
+    mu.new = t(apply(t(t(y) - d), 1, function(i) tapply(i, rep(1:n.grp, n.samp.grp), function(j)
+      mean(j, na.rm = T))))
+    
+    # Updating d
+    d.new = colMeans(y - mu.new[, rep(1:ncol(mu.new), times = n.samp.grp)], na.rm = T)
+    
+    # Iteration
+    epsilon = sqrt(sum((mu.new - mu)^2) + sum((d.new - d)^2))
+    iterNum = iterNum + 1
+    
+    mu = mu.new
+    d = d.new
+  }
+  
+  mu.var.each = (y-t(t(mu[, rep(1:ncol(mu), times = n.samp.grp)])+d))^2
+  mu.var = t(apply(mu.var.each, 1, function(x) tapply(x, rep(1:n.grp, n.samp.grp), function(y)
+    mean(y, na.rm = T))))
+  sample.size = t(apply(y, 1, function(x)
+    unlist(tapply(x, rep(1:n.grp, n.samp.grp), function(y) length(y[!is.na(y)])))))
+  mu.var = mu.var/sample.size
+  
+  ### 2. Estimate the bias (between-group difference of sampling fractions) by E-M algorithm
+  bias.em.vec = rep(NA, n.grp - 1)
+  bias.wls.vec = rep(NA, n.grp - 1)
+  bias.var.vec = rep(NA, n.grp - 1)
+  for (i in 1:(n.grp-1)) {
+    Delta = mu[, 1] - mu[, 1+i]
+    nu = rowSums(mu.var[, c(1, 1+i)])
+    
+    ## 2.1 Initials
+    pi0_0 = 0.75
+    pi1_0 = 0.125
+    pi2_0 = 0.125
+    delta_0 = mean(Delta[Delta >= quantile(Delta, 0.25, na.rm = T)&
+                           Delta <= quantile(Delta, 0.75, na.rm = T)], na.rm = T)
+    l1_0 = mean(Delta[Delta < quantile(Delta, 0.125, na.rm = T)], na.rm = T)
+    l2_0 = mean(Delta[Delta > quantile(Delta, 0.875, na.rm = T)], na.rm = T)
+    kappa1_0 = var(Delta[Delta < quantile(Delta, 0.125, na.rm = T)], na.rm = T)
+    if(is.na(kappa1_0)|kappa1_0 == 0) kappa1_0 = 1
+    kappa2_0 = var(Delta[Delta > quantile(Delta, 0.875, na.rm = T)], na.rm = T)
+    if(is.na(kappa2_0)|kappa2_0 == 0) kappa2_0 = 1
+    
+    ## 2.2 Apply E-M algorithm
+    # 2.21 Store all paras in vectors/matrices
+    pi0.vec = c(pi0_0); pi1.vec = c(pi1_0); pi2.vec = c(pi2_0)
+    delta.vec = c(delta_0); l1.vec = c(l1_0); l2.vec = c(l2_0)
+    kappa1.vec = c(kappa1_0); kappa2.vec = c(kappa2_0)
+    
+    # 2.22 E-M iteration
+    iterNum = 0
+    epsilon = 100
+    while (epsilon > tol.EM & iterNum < max.iterNum) {
+      # print(iterNum)
+      ## Current value of paras
+      pi0 = pi0.vec[length(pi0.vec)]; pi1 = pi1.vec[length(pi1.vec)]; pi2 = pi2.vec[length(pi2.vec)]
+      delta = delta.vec[length(delta.vec)];
+      l1 = l1.vec[length(l1.vec)]; l2 = l2.vec[length(l2.vec)]
+      kappa1 = kappa1.vec[length(kappa1.vec)]; kappa2 = kappa2.vec[length(kappa2.vec)]
+      
+      ## E-step
+      pdf0 = sapply(seq(n.taxa), function(i) dnorm(Delta[i], delta, sqrt(nu[i])))
+      pdf1 = sapply(seq(n.taxa), function(i) dnorm(Delta[i], delta + l1, sqrt(nu[i] + kappa1)))
+      pdf2 = sapply(seq(n.taxa), function(i) dnorm(Delta[i], delta + l2, sqrt(nu[i] + kappa2)))
+      r0i = pi0*pdf0/(pi0*pdf0 + pi1*pdf1 + pi2*pdf2); r0i[is.na(r0i)] = 0
+      r1i = pi1*pdf1/(pi0*pdf0 + pi1*pdf1 + pi2*pdf2); r1i[is.na(r1i)] = 0
+      r2i = pi2*pdf2/(pi0*pdf0 + pi1*pdf1 + pi2*pdf2); r2i[is.na(r2i)] = 0
+      
+      ## M-step
+      pi0_new = mean(r0i, na.rm = T); pi1_new = mean(r1i, na.rm = T); pi2_new = mean(r2i, na.rm = T)
+      delta_new = sum(r0i*Delta/nu + r1i*(Delta-l1)/(nu+kappa1) + r2i*(Delta-l2)/(nu+kappa2), na.rm = T)/
+        sum(r0i/nu + r1i/(nu+kappa1) + r2i/(nu+kappa2), na.rm = T)
+      l1_new = min(sum(r1i*(Delta-delta)/(nu+kappa1), na.rm = T)/sum(r1i/(nu+kappa1), na.rm = T), 0)
+      l2_new = max(sum(r2i*(Delta-delta)/(nu+kappa2), na.rm = T)/sum(r2i/(nu+kappa2), na.rm = T), 0)
+      
+      # Nelder-Mead simplex algorithm for kappa1 and kappa2
+      obj.kappa1 = function(x){
+        log.pdf = log(sapply(seq(n.taxa), function(i) dnorm(Delta[i], delta+l1, sqrt(nu[i]+x))))
+        log.pdf[is.infinite(log.pdf)] = 0
+        -sum(r1i*log.pdf, na.rm = T)
+      }
+      kappa1_new = neldermead(x0 = kappa1, fn = obj.kappa1, lower = 0)$par
+      
+      obj.kappa2 = function(x){
+        log.pdf = log(sapply(seq(n.taxa), function(i) dnorm(Delta[i], delta+l2, sqrt(nu[i]+x))))
+        log.pdf[is.infinite(log.pdf)] = 0
+        -sum(r2i*log.pdf, na.rm = T)
+      }
+      kappa2_new = neldermead(x0 = kappa2, fn = obj.kappa2, lower = 0)$par
+      
+      ## Merge to the paras vectors/matrices
+      pi0.vec = c(pi0.vec, pi0_new); pi1.vec = c(pi1.vec, pi1_new); pi2.vec = c(pi2.vec, pi2_new)
+      delta.vec = c(delta.vec, delta_new)
+      l1.vec = c(l1.vec, l1_new); l2.vec = c(l2.vec, l2_new)
+      kappa1.vec = c(kappa1.vec, kappa1_new); kappa2.vec = c(kappa2.vec, kappa2_new)
+      
+      ## Calculate the new epsilon
+      epsilon = sqrt((pi0_new-pi0)^2 + (pi1_new-pi1)^2 + (pi2_new-pi2)^2 + (delta_new-delta)^2+
+                       (l1_new-l1)^2 + (l2_new-l2)^2 + (kappa1_new-kappa1)^2 + (kappa2_new-kappa2)^2)
+      iterNum = iterNum+1
+    }
+    # 2.23 Estimate the bias
+    bias.em.vec[i] = delta.vec[length(delta.vec)]
+    
+    # 2.24 The WLS estimator of bias
+    # Cluster 0
+    C0 = which(Delta >= quantile(Delta, pi1_new, na.rm = T) & Delta < quantile(Delta, 1 - pi2_new, na.rm = T))
+    # Cluster 1
+    C1 = which(Delta < quantile(Delta, pi1_new, na.rm = T))
+    # Cluster 2
+    C2 = which(Delta >= quantile(Delta, 1 - pi2_new, na.rm = T))
+    
+    nu_temp = nu
+    nu_temp[C1] = nu_temp[C1] + kappa1_new
+    nu_temp[C2] = nu_temp[C2] + kappa2_new
+    wls.deno = sum(1 / nu_temp)
+    
+    wls.nume = 1 / nu_temp
+    wls.nume[C0] = (wls.nume * Delta)[C0]
+    wls.nume[C1] = (wls.nume * (Delta - l1_new))[C1]
+    wls.nume[C2] = (wls.nume * (Delta - l2_new))[C2];  
+    wls.nume = sum(wls.nume)
+    
+    bias.wls.vec[i] = wls.nume / wls.deno
+    
+    # 2.25 Estimate the variance of bias
+    bias.var.vec[i] = 1 / wls.deno
+    if (is.na(bias.var.vec[i])) bias.var.vec[i] = 0
+  }
+  bias.em.vec = c(0, bias.em.vec)
+  bias.wls.vec = c(0, bias.wls.vec)
+  
+  ### 3. Final estimates of mean absolute abundance and sampling fractions
+  mu.adj.comp = t(t(mu) + bias.em.vec)
+  colnames(mu.adj.comp) = grp.name; rownames(mu.adj.comp) = taxa.id
+  
+  d.adj = d - rep(bias.em.vec, sapply(grp.ind, length))
+  names(d.adj) = sample.id
+  
+  ### 4. Hypothesis testing
+  W.numerator = matrix(apply(mu.adj.comp, 1, function(x) combn(x, 2, FUN = diff)), ncol = n.taxa)
+  W.numerator = t(W.numerator)
+  # Variance of estimated mean difference
+  W.denominator1 = matrix(apply(mu.var, 1, function(x) combn(x, 2, FUN = sum)), ncol = n.taxa)
+  # Variance of delta_hat
+  if (length(bias.var.vec) < 2) {
+    W.denominator2 = bias.var.vec
+  }else {
+    W.denominator2 = c(bias.var.vec, combn(bias.var.vec, 2, FUN = sum))
+  }
+  W.denominator = W.denominator1 + W.denominator2 + 2 * sqrt(W.denominator1 * W.denominator2)
+  W.denominator = t(sqrt(W.denominator))
+  grp.pair = combn(n.grp, 2)
+  colnames(W.numerator) = sapply(1:ncol(grp.pair), function(x)
+    paste0("mean.difference (", grp.name[grp.pair[2, x]], " - ", grp.name[grp.pair[1, x]], ")"))
+  colnames(W.denominator) = sapply(1:ncol(grp.pair), function(x)
+    paste0("se (", grp.name[grp.pair[2, x]], " - ", grp.name[grp.pair[1, x]], ")"))
+  rownames(W.numerator) = taxa.id; rownames(W.denominator) = taxa.id
+  
+  if (length(grp.name) == 2) {
+    ## Two-group comparison
+    W = W.numerator/W.denominator
+    p.val = sapply(W, function(x) 2*pnorm(abs(x), mean = 0, sd = 1, lower.tail = F))
+    q.val = p.adjust(p.val, method = adj.method)
+    q.val[is.na(q.val)] = 1
+  } else {
+    ## Multi-group comparison: Permutation test
+    # Test statistics
+    W.each = W.numerator/W.denominator
+    W.each[is.na(W.each)] = 0 # Replace missing values with 0s
+    W = apply(abs(W.each), 1, max)
+    
+    # Test statistics under null
+    W.null.list = lapply(1:perNum, function(x) {
+      set.seed(x)
+      mu.adj.comp.null = matrix(rnorm(n.taxa * n.grp), nrow = n.taxa, ncol = n.grp) * sqrt(mu.var)
+      W.numerator.null = matrix(apply(mu.adj.comp.null, 1, function(x) combn(x, 2, FUN = diff)), ncol = n.taxa)
+      W.numerator.null = t(W.numerator.null)
+      
+      W.each.null = W.numerator.null/W.denominator
+      W.each.null[is.na(W.each.null)] = 0
+      W.null = apply(abs(W.each.null), 1, max)
+      return(W.null)
+    })
+    W.null = Reduce('cbind', W.null.list)
+    
+    # Test results
+    p.val = apply(W.null - W, 1, function(x) sum(x > 0)/perNum)
+    q.val = p.adjust(p.val, method = adj.method)
+    q.val[is.na(q.val)] = 1
+  }
+  
+  W = matrix(W, ncol = 1)
+  colnames(W) = "W"
+  res.comp = data.frame(W.numerator, W.denominator, W = W, p.val, q.val, check.names = FALSE)
+  
+  ### 5. Combine results from structural zeros
+  mu.adj = matrix(NA, nrow = n.taxa.raw, ncol = n.grp)
+  colnames(mu.adj) = grp.name; rownames(mu.adj) = taxa.id.raw
+  mu.adj[comp.taxa.pos, ] = mu.adj.comp
+  
+  if (length(comp.taxa.pos) < n.taxa.raw) {
+    O.incomp = feature.table[-comp.taxa.pos, ]
+    ind.incomp = struc.zero[-comp.taxa.pos, rep(1:n.grp, times = n.samp.grp)]
+    y.incomp = log(O.incomp + 1)
+    d.incomp = t(t(1 - ind.incomp) * d) # Sampling fractions for entries considered to be structural zeros are set to be 0s
+    y.adj.incomp = y.incomp - d.incomp
+    mu.incomp = t(apply(y.adj.incomp, 1, function(i)
+      tapply(i, rep(1:n.grp, n.samp.grp), function(j) mean(j, na.rm = T))))
+    # In case of negative values for mean absolute abundances
+    mu.adj.incomp = mu.incomp
+    mu.adj.incomp[mu.adj.incomp == 0] = NA
+    mu.adj.incomp = t(t(mu.adj.incomp) + abs(apply(mu.incomp, 2, min)))
+    mu.adj.incomp[is.na(mu.adj.incomp)] = 0
+  }else{
+    mu.adj.incomp = NA
+  }
+  mu.adj[-comp.taxa.pos, ] = mu.adj.incomp
+  colnames(mu.adj) = paste0("mean.absolute.abundance (", grp.name, ")")
+  rownames(mu.adj) = taxa.id.raw
+  
+  ### 6. Outputs
+  W.numerator = matrix(apply(mu.adj, 1, function(x) combn(x, 2, FUN = diff)), ncol = n.taxa.raw)
+  W.numerator = t(W.numerator)
+  W.denominator = matrix(0, ncol = ncol(W.numerator), nrow = nrow(W.numerator))
+  
+  res = data.frame(W.numerator, W.denominator, W = Inf, p.val = 0, q.val = 0, check.names = FALSE)
+  res[comp.taxa.pos, ] = res.comp
+  colnames(res) = colnames(res.comp); rownames(res) = taxa.id.raw
+  res = res%>%mutate(diff.abn = ifelse(q.val < alpha, TRUE, FALSE))
+  
+  out = list(feature.table = feature.table, res = res, d = d.adj, mu = mu.adj, bias.em = bias.em.vec, bias.wls = bias.wls.vec)
+  return(out)
+}
+
+# ANCOM-bc
+# Lin & Peddada. Nat. Comm, 2020
+# https://github.com/FrederickHuangLin/ANCOM-BC-Code-Archive/blob/master/scripts/ancom_bc.R
+# Functions at bottom of code
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Treatment == "gnoHpa" | Treatment == "Mock")
+subset_featuretable <- subset_samples(subset_featuretable1, Timepoint == "week_2")
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Treatment" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_gnoHpa_vs_mock_week2.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Treatment == "gnoHpa" | Treatment == "Mock")
+subset_featuretable <- subset_samples(subset_featuretable1, Timepoint == "week_3")
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Treatment" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_gnoHpa_vs_mock_week3.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Treatment == "gnoHpa" | Treatment == "Mock")
+subset_featuretable <- subset_samples(subset_featuretable1, Timepoint == "week_4")
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Treatment" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_gnoHpa_vs_mock_week4.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Treatment == "gnoHpa" | Treatment == "Mock")
+subset_featuretable <- subset_samples(subset_featuretable1, Timepoint == "week_5")
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Treatment" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_gnoHpa_vs_mock_week5.csv")
+
+#Criterium 2: enriched progressively
+##differential abundance testing
+phyloseq_filter_prevalence <- function(physeq, prev.trh = 0.25, abund.trh = NULL, threshold_condition = "OR", abund.type = "total"){
+  
+  ## Threshold validation
+  if(prev.trh > 1 | prev.trh < 0){ stop("Prevalence threshold should be non-negative value in the range of [0, 1].\n") }
+  if(!is.null(abund.trh)){ 
+    if(abund.trh <= 0){ stop("Abundance threshold should be non-negative value larger 0.\n") }
+  }
+  
+  ## Check for the low-prevalence species (compute the total and average prevalences of the features in each phylum)
+  prevdf_smr <- function(prevdf){
+    ddply(prevdf, "Phylum", function(df1){ data.frame(Average = mean(df1$Prevalence), Total = sum(df1$Prevalence))})
+  }
+  # prevdf_smr( prevalence(physeq) )
+  
+  ## Check the prevalence threshold
+  # phyloseq_prevalence_plot(prevdf, physeq)
+  
+  ## Define prevalence threshold as % of total samples
+  ## This function is located in 'phyloseq_prevalence_plot.R' file
+  prevalenceThreshold <- prev.trh * phyloseq::nsamples(physeq)
+  
+  ## Calculate prevalence (number of samples with OTU) and OTU total abundance
+  prevdf <- prevalence(physeq)
+  
+  ## Get the abundance type
+  if(abund.type == "total") { prevdf$AbundFilt <- prevdf$TotalAbundance }
+  if(abund.type == "mean")  { prevdf$AbundFilt <- prevdf$MeanAbundance }
+  if(abund.type == "median"){ prevdf$AbundFilt <- prevdf$MedianAbundance }
+  
+  ## Which taxa to preserve
+  if(is.null(abund.trh)) { tt <- prevdf$Prevalence >= prevalenceThreshold }
+  if(!is.null(abund.trh)){
+    ## Keep OTU if it either occurs in many samples OR it has high abundance
+    if(threshold_condition == "OR"){
+      tt <- (prevdf$Prevalence >= prevalenceThreshold | prevdf$AbundFilt >= abund.trh)
+    }
+    
+    ## Keep OTU if it occurs in many samples AND it has high abundance
+    if(threshold_condition == "AND"){
+      tt <- (prevdf$Prevalence >= prevalenceThreshold & prevdf$AbundFilt >= abund.trh)
+    }
+  }
+  
+  ## Extract names for the taxa we whant to keep
+  keepTaxa <- rownames(prevdf)[tt]
+  
+  ## Execute prevalence filter
+  res <- phyloseq::prune_taxa(keepTaxa, physeq)
+  return(res)
+}
+#
+prevalence <- function(physeq, add_tax = TRUE){
+  
+  ## Check if taxa are rows
+  trows <- taxa_are_rows(physeq)
+  
+  ## Extract OTU table
+  otutab <- as.data.frame(otu_table(physeq))
+  
+  ## Transpose OTU table (species should be arranged by rows)
+  if(trows == FALSE){
+    otutab <- t(otutab)
+  }
+  
+  ## Estimate prevalence (number of samples with OTU present)
+  prevdf <- apply(X = otutab,
+                  # MARGIN = ifelse(trows, yes = 1, no = 2),  # for a non-transposed data
+                  MARGIN = 1,
+                  FUN = function(x){sum(x > 0)})
+  
+  ## Add total and average read counts per OTU
+  prevdf <- data.frame(Prevalence = prevdf,
+                       TotalAbundance = taxa_sums(physeq),
+                       MeanAbundance = rowMeans(otutab),
+                       MedianAbundance = apply(otutab, 1, median))
+  
+  ## Add taxonomy table
+  if(add_tax == TRUE && !is.null(tax_table(physeq, errorIfNULL = F))){
+    prevdf <- cbind(prevdf, tax_table(physeq))
+  }
+  return(prevdf)
+}
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_2")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Treatment == 'gnoHpa')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Timepoint)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Timepoint_week_2_vs_week_1")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_gnoHpa_week_2_vs_week_1.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_3")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Treatment == 'gnoHpa')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Timepoint)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Timepoint_week_3_vs_week_1")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_gnoHpa_week_3_vs_week_1.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_4")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Treatment == 'gnoHpa')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Timepoint)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Timepoint_week_4_vs_week_1")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_gnoHpa_week_4_vs_week_1.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_5")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Treatment == 'gnoHpa')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Timepoint)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Timepoint_week_5_vs_week_1")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_gnoHpa_week_5_vs_week_1.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_2")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Treatment == 'Mock')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Timepoint)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Timepoint_week_2_vs_week_1")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_mock_week_2_vs_week_1.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_3")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Treatment == 'Mock')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Timepoint)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Timepoint_week_3_vs_week_1")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_Mock_week_3_vs_week_1.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_4")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Treatment == 'Mock')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.25, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Timepoint)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Timepoint_week_4_vs_week_1")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_Mock_week_4_vs_week_1.csv")
+
+gnoHpa_vs_Mock <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_5")
+gnoHpa_vs_Mock <- subset_samples(gnoHpa_vs_Mock, Treatment == 'Mock')
+gnoHpa_vs_Mock_prev <- phyloseq_filter_prevalence(gnoHpa_vs_Mock, prev.trh = 0.315, abund.trh = NULL)
+#otu_table(Hpa_vs_Mock_prev) <- otu_table(Hpa_vs_Mock_prev) +1
+DESeq2_ASV_table_meta <- phyloseq_to_deseq2(gnoHpa_vs_Mock_prev, ~Timepoint)
+DESeq2_ASV_table_meta = DESeq(DESeq2_ASV_table_meta, test="Wald", fitType="parametric")
+
+#check model fitting of dispersion
+dispersion_plot <- plotDispEsts(DESeq2_ASV_table_meta)
+#shrink log fold changes
+resultsNames(DESeq2_ASV_table_meta)
+resLFC <- lfcShrink(DESeq2_ASV_table_meta, coef="Timepoint_week_5_vs_week_1")
+dfresLFC <- as.data.frame(resLFC)
+
+alpha <- 0.05
+sigtab <- dfresLFC[which(resLFC$padj < alpha), ]
+sigtab <- cbind(as(sigtab, "data.frame"), as(tax_table(ASV_table_meta)[rownames(sigtab), ], "matrix"))
+
+write.csv(sigtab, file = "sigtab_Mock_week_5_vs_week_1.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_2")
+subset_featuretable <- subset_samples(subset_featuretable1, Treatment == 'gnoHpa')
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Timepoint" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_gnoHpa_week_2_vs_week_1.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_3")
+subset_featuretable <- subset_samples(subset_featuretable1, Treatment == 'gnoHpa')
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Timepoint" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_gnoHpa_week_3_vs_week_1.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_4")
+subset_featuretable <- subset_samples(subset_featuretable1, Treatment == 'gnoHpa')
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Timepoint" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_gnoHpa_week_4_vs_week_1.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_5")
+subset_featuretable <- subset_samples(subset_featuretable1, Treatment == 'gnoHpa')
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Timepoint" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_gnoHpa_week_5_vs_week_1.csv")
+
+
+
+
+
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_2")
+subset_featuretable <- subset_samples(subset_featuretable1, Treatment == 'Mock')
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Timepoint" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_mock_week_2_vs_week_1.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_3")
+subset_featuretable <- subset_samples(subset_featuretable1, Treatment == 'Mock')
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Timepoint" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_mock_week_3_vs_week_1.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_4")
+subset_featuretable <- subset_samples(subset_featuretable1, Treatment == 'Mock')
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Timepoint" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_mock_week_4_vs_week_1.csv")
+
+subset_featuretable1 <- subset_samples(ASV_table_meta_no_salini, Timepoint == "week_1" | Timepoint == "week_5")
+subset_featuretable <- subset_samples(subset_featuretable1, Treatment == 'Mock')
+feature.ancom = abundances(subset_featuretable) 
+meta.data <- metadata
+sample.var = "SampleID" # variable in metadata that describes the sample names in feature.table
+group.var = "Timepoint" # variable in metadata that describes 2 sample groups to compare
+zero.cut = 0.90
+# Numerical fraction between 0 and 1. Taxa with proportion of zeroes greater than zero.cut are not included in the analysis
+# Keep this max 1.0 to remove ASVs marked as outliers -> only NA and 0 counts remaining, resulting in proportion = 1.0
+lib.cut = 0
+# Samples with library size less than lib.cut are not included in the analysis; I don't filter any more in this step
+neg.lb = TRUE 
+# TRUE indicates a taxon would be classified as a structural zero in the corresponding experimental group using its asymptotic lower bound
+
+
+# Filtering out outliers
+# Marking structural zeros
+# Load function at bottom of code
+pre.process = feature_table_pre_process(feature.ancom, meta.data, sample.var, 
+                                        group.var, zero.cut, lib.cut, neg.lb)
+
+# Note that pre.process contains fewer ASVs compared to feature.ancom; outliers removed
+
+# Filter feature table etc. for pre-processed ASVs
+feature.ancom = pre.process$feature.table
+group.name = pre.process$group.name
+group.ind = pre.process$group.ind
+struc.zero = pre.process$structure.zeros
+
+# Export info on structural zeros
+struc.zero.df <- data.frame(ID = row.names(struc.zero), struc.zero)
+
+# Parameters for ANCOM-BC
+grp.name = group.name
+grp.ind = group.ind
+adj.method = "fdr" # default is Bonferroni
+
+tol.EM = 1e-5; max.iterNum = 100; perNum = 1000; alpha = 0.05
+
+
+# ANCOM_bc
+out = ANCOM_BC(feature.ancom, grp.name, grp.ind, struc.zero,
+               adj.method, tol.EM, max.iterNum, perNum, alpha)
+
+res = cbind(taxon = rownames(out$feature.table), out$res)
+
+# Remove scientific writing
+res <- format(res, scientific = FALSE)
+res <- as.data.frame(res)
+res$padj <- p.adjust(res$p.val, method = "BH")
+write.csv(res, "ANCOM_mock_week_5_vs_week_1.csv")
+
+#criterium 3: correlate
+## unbiased spearman correlations
+gnoHpa <- subset_samples(samples_relative, Treatment == 'Mock' | Treatment == "gnoHpa")
+
+phyloseq_filter_prevalence <- function(physeq, prev.trh = 0.044, abund.trh = NULL, threshold_condition = "OR", abund.type = "total"){
+  
+  ## Threshold validation
+  if(prev.trh > 1 | prev.trh < 0){ stop("Prevalence threshold should be non-negative value in the range of [0, 1].\n") }
+  if(!is.null(abund.trh)){ 
+    if(abund.trh <= 0){ stop("Abundance threshold should be non-negative value larger 0.\n") }
+  }
+  
+  ## Check for the low-prevalence species (compute the total and average prevalences of the features in each phylum)
+  prevdf_smr <- function(prevdf){
+    ddply(prevdf, "Phylum", function(df1){ data.frame(Average = mean(df1$Prevalence), Total = sum(df1$Prevalence))})
+  }
+  # prevdf_smr( prevalence(physeq) )
+  
+  ## Check the prevalence threshold
+  # phyloseq_prevalence_plot(prevdf, physeq)
+  
+  ## Define prevalence threshold as % of total samples
+  ## This function is located in 'phyloseq_prevalence_plot.R' file
+  prevalenceThreshold <- prev.trh * phyloseq::nsamples(physeq)
+  
+  ## Calculate prevalence (number of samples with OTU) and OTU total abundance
+  prevdf <- prevalence(physeq)
+  
+  ## Get the abundance type
+  if(abund.type == "total") { prevdf$AbundFilt <- prevdf$TotalAbundance }
+  if(abund.type == "mean")  { prevdf$AbundFilt <- prevdf$MeanAbundance }
+  if(abund.type == "median"){ prevdf$AbundFilt <- prevdf$MedianAbundance }
+  
+  ## Which taxa to preserve
+  if(is.null(abund.trh)) { tt <- prevdf$Prevalence >= prevalenceThreshold }
+  if(!is.null(abund.trh)){
+    ## Keep OTU if it either occurs in many samples OR it has high abundance
+    if(threshold_condition == "OR"){
+      tt <- (prevdf$Prevalence >= prevalenceThreshold | prevdf$AbundFilt >= abund.trh)
+    }
+    
+    ## Keep OTU if it occurs in many samples AND it has high abundance
+    if(threshold_condition == "AND"){
+      tt <- (prevdf$Prevalence >= prevalenceThreshold & prevdf$AbundFilt >= abund.trh)
+    }
+  }
+  
+  ## Extract names for the taxa we whant to keep
+  keepTaxa <- rownames(prevdf)[tt]
+  
+  ## Execute prevalence filter
+  res <- phyloseq::prune_taxa(keepTaxa, physeq)
+  return(res)
+}
+#
+prevalence <- function(physeq, add_tax = TRUE){
+  
+  ## Check if taxa are rows
+  trows <- taxa_are_rows(physeq)
+  
+  ## Extract OTU table
+  otutab <- as.data.frame(otu_table(physeq))
+  
+  ## Transpose OTU table (species should be arranged by rows)
+  if(trows == FALSE){
+    otutab <- t(otutab)
+  }
+  
+  ## Estimate prevalence (number of samples with OTU present)
+  prevdf <- apply(X = otutab,
+                  # MARGIN = ifelse(trows, yes = 1, no = 2),  # for a non-transposed data
+                  MARGIN = 1,
+                  FUN = function(x){sum(x > 0)})
+  
+  ## Add total and average read counts per OTU
+  prevdf <- data.frame(Prevalence = prevdf,
+                       TotalAbundance = taxa_sums(physeq),
+                       MeanAbundance = rowMeans(otutab),
+                       MedianAbundance = apply(otutab, 1, median))
+  
+  ## Add taxonomy table
+  if(add_tax == TRUE && !is.null(tax_table(physeq, errorIfNULL = F))){
+    prevdf <- cbind(prevdf, tax_table(physeq))
+  }
+  return(prevdf)
+}
+
+samples_relative_prevfiltered <- phyloseq_filter_prevalence(gnoHpa, prev.trh = 0.044, abund.trh = NULL)
+
+OTU = as.data.frame(t(as(otu_table(samples_relative_prevfiltered),"matrix")))
+OTU <- tibble::rownames_to_column(OTU, "SampleID")
+meta <- read.table('Metadata_5_gen_exp.txt', sep = '\t', header=TRUE)
+meta_sub <- meta[,c(1,9)]
+OTU_dummies <- left_join(OTU, meta_sub, by = "SampleID")
+i1 <- sapply(OTU_dummies, is.numeric)
+y1 <- "Disease_quantification" #change it to actual column name
+x1 <- setdiff(names(OTU_dummies)[i1], y1)
+SBL_correlations <- data.frame(ASV=x1, R="", P="")
+n <- length(x1)
+estimates = list()
+pvalues = list()
+#p-value Inoculated, permutation based
+#p <- list()
+for (i in x1) {
+  group1 <- OTU_dummies[[i]]
+  group2 <- OTU_dummies$Disease_quantification
+  group1
+  group2
+  test <- cor.test(group1, group2, method = "spearman")
+  estimates[i] = test$estimate
+  pvalues[i] = test$p.value
+}
+SBL_correlations$R <- estimates
+SBL_correlations$P <- pvalues
+SBL_correlations$Padj <- p.adjust(SBL_correlations$P, method = "BH", n = length(SBL_correlations$P))
+SBL_correlations <- apply(SBL_correlations,2,as.character)
+write.table(SBL_correlations, file = "spearman_correlations_ASVs_gnoHpa_Mock_diseasequantification.txt", sep = "\t")
+
+#Fig. 3D
+## 12 ASVs abundance plots
+Long_samples_relative <- samples_relative %>%
+  psmelt() # Melt to long format
+Long_samples_relative$Abundance = Long_samples_relative$Abundance *100
+#add column based on overlap in enriched/depleted in all Hpa samples (DESeq2 output)
+overlap <- read.table("ASVs_venn_3criteria_ANCOM_DESeq.txt", header = TRUE)
+Long_samples_relative_2 <- left_join(Long_samples_relative, overlap, by = "OTU")
+#Long_samples_relative_2 <- subset(Long_samples_relative_2, Correlation == "Positive" | Correlation == "Negative")
+#replace <NA> with Unaffected_or_no_overlap
+Long_samples_relative_2 <- subset(Long_samples_relative_2, Status == "Enriched")
+#Long_samples_relative_2$Status[is.na(Long_samples_relative_2$Status)] <- "Not_enriched"
+Long_samples_relative_3 <- Long_samples_relative_2[order(Long_samples_relative_2$Status),]
+Long_samples_relative_3$Status <- factor(Long_samples_relative_3$Status, levels = c('Enriched'))
+Long_samples_relative_3$Treatment <- factor(Long_samples_relative_3$Treatment, levels = c( 'Untreated', 'Mock', 'gnoHpa','Hpa'))
+Long_samples_relative_3$Timepoint <- factor(Long_samples_relative_3$Timepoint, levels = c('week_1', 'week_2', 'week_3', 'week_4', 'week_5'))
+
+Long_samples_relative_3$Genus <- gsub('"', "",as.character(Long_samples_relative_3$Genus))
+library(stringi)
+Long_samples_relative_3$ASV_tag_2 <- stringi::stri_sub(Long_samples_relative_3$OTU, 1, 5)
+Long_samples_relative_3$ASV_tag <- paste(Long_samples_relative_3$Genus, Long_samples_relative_3$ASV_tag)
+
+selection <- Long_samples_relative_3 %>%
+  group_by(Treatment, Timepoint, ASV_tag) %>%
+  summarise(mean_abundance = mean(Abundance)) #%>%
+#group_by(Genus, Treatment) %>%
+#summarise(mean_abundance2 = sum(mean_abundance))
+
+subset <- selection
+taxbarplot <- ggplot(subset, aes(x = Timepoint, y = mean_abundance, fill = ASV_tag)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  facet_wrap(~Treatment, ncol = 4)+
+  scale_y_continuous(name = "Abundance (%)") +
+  expand_limits(y = c(0,25))+
+  #scale_fill_manual(values = c(Depleted='red', Enriched='blue')) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  #scale_x_discrete(labels= vec1)+
+  theme(axis.title.x = element_blank(),
+        legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 45, hjust = 1),
+        axis.title.y=element_text(size=20),
+        axis.text.y=element_text(size=20))
+print(taxbarplot)
+ggsave(file="ASVs_ANCOM_DESeq2_three_criteria_reordered.svg", plot=taxbarplot, width=8, height=3)
+
+#Fig. S4
+selection <- Long_samples_relative_3 %>%
+  group_by(OTU, Treatment, Timepoint, ASV_tag, Line, Number_criteria) %>%
+  summarise(mean_abundance = mean(Abundance)) #%>%
+#group_by(Genus, Treatment) %>%
+#summarise(mean_abundance2 = sum(mean_abundance))
+
+per_line <- subset(selection, Treatment != 'Untreated')
+per_line$Line <- factor(per_line$Line, levels = c('M2', "M3", "M4", "M5", "M6", 'M7', 'M9', 'M10', 'M11', 'M12', 'M13', 'M14', 'H1', 'H2', 'H3', 'H5', 'H6','H7', 'H8', 'H9', 'H10', 'H12', 'H14', 'H15', 'G3', 'G4', 'G5', 'G7', 'G8', 'G9', 'G10', 'G11','G12', 'G13', 'G14', 'G15'))
+
+subset2 <- subset(per_line, Number_criteria == 'Three')
+
+stacked_barplot <- ggplot(subset2, aes(x = Timepoint, y = mean_abundance, fill = ASV_tag)) +
+  facet_wrap( ~ Line, ncol=6) +
+  geom_bar(stat = "identity", color = '#000000') +
+  scale_y_continuous(name = "Abundance (%)") +
+  #scale_fill_manual(values = c("Enriched" = "red")) +
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        strip.text.y = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_blank(),
+        #axis.text.x=element_text(angle = 45, hjust = 1, size = 10),
+        axis.title.y=element_text(size=10),
+        axis.text.y=element_text(size=10))
+print(stacked_barplot)
+ggsave(file="ASVs_ANCOM_DESeq2_three_criteria_line.svg", plot=stacked_barplot, width=10, height=8)
+
+#### salinibacter
+#Absolute_abundances 
+
+setwd("C:/Users/4255607/OneDrive - Universiteit Utrecht/PhD/Experiments/Chapter 4/Figures chapter 4/Sequencing data chapter 4 neat/Passaging experiment")
+
+metadata <- import_qiime_sample_data("Metadata_5_gen_exp.txt")
+ASV_table <- import_biom(BIOMfilename = "5passages_feature_table_filtered_457_6.biom", treefilename = "tree.nwk") #not rarified
+reference_seqs <- Biostrings::readDNAStringSet(file = "dna-sequences.fasta", format = "fasta", nrec = -1L, skip = 0L, seek.first.rec = FALSE, use.names = TRUE)
+ASV_table_meta <- merge_phyloseq(ASV_table, metadata, reference_seqs)
+colnames(tax_table(ASV_table_meta)) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+ASV_table_meta_no_salini1 <- subset_samples(ASV_table_meta, Timepoint != "week_0")
+
+{
+  taxtab <- as.data.frame(tax_table(ASV_table_meta))
+  salini_ASVs <- subset(taxtab, Genus == "Salinibacter")
+  salini_ASVs$ASV <- rownames(salini_ASVs)
+  salini_ASVs_vec <- as.vector(salini_ASVs$ASV)
+  
+  vec_subset <- c("M12w5", "M11w4", "M11w5", "M2w5", "M4w5", "M9w5", "U2w1") #"M10w5", 
+  ASV_table_meta_salini <- subset_samples(ASV_table_meta_no_salini1, !(SampleID %in% vec_subset))
+  
+  
+  OTU_tab_salini_P <- as.data.frame(otu_table(ASV_table_meta_salini))
+  
+  P <- 3.701654247*2.46*10^5
+  
+  cells_table <- (OTU_tab_salini_P*P)
+  
+  #cell_table_salini <- cells_table[salini_ASVs_vec,]
+  #cells_table_backup <- cells_table
+  
+  for (name in colnames(cells_table)) cells_table[,name] <- cells_table[,name]/otu_table(ASV_table_meta_salini)["cc7d89dd6e92976234083313b57c05dc",name]
+  
+  #ASV_table_meta_salini_final <- ASV_table_meta_salini
+  #otu_table(ASV_table_meta_salini_final) <- cells_table
+  
+  write.csv(cells_table, file = "salinibacter_OTU_table.csv")}
+
+metadata <- import_qiime_sample_data("Metadata_5_gen_exp.txt")
+ASV_table_absolute <- import_biom(BIOMfilename = "salinibacter_OTU_table.biom", treefilename = "tree.nwk") #not rarified
+reference_seqs <- Biostrings::readDNAStringSet(file = "dna-sequences.fasta", format = "fasta", nrec = -1L, skip = 0L, seek.first.rec = FALSE, use.names = TRUE)
+ASV_table_meta_absolute <- merge_phyloseq(ASV_table_absolute, metadata, reference_seqs)
+colnames(tax_table(ASV_table_meta_absolute)) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+Long_samples_absolute <- ASV_table_meta_absolute %>%
+  psmelt() # Melt to long format
+Long_samples_absolute$Abundance_per_gram <- Long_samples_absolute$Abundance / Long_samples_absolute$Sample_weight
+overlap <- read.table("ASVs_venn_3criteria_ANCOM_DESeq.txt", header = TRUE)
+Long_samples_absolute_2 <- left_join(Long_samples_absolute, overlap, by = "OTU")
+Long_samples_absolute_2 <- subset(Long_samples_absolute_2, Status != "NA")
+Long_samples_absolute_2 <- subset(Long_samples_absolute_2, Number_criteria == "Three")
+#Long_samples_absolute_3 <- subset(Long_samples_absolute_2, Status != "Enriched")
+#Long_samples_relative_2$Status[is.na(Long_samples_relative_3$Status)] <- "Not_enriched"
+Long_samples_absolute_3 <- Long_samples_absolute_2[order(Long_samples_absolute_2$Status),]
+Long_samples_absolute_3$Status <- factor(Long_samples_absolute_3$Status, levels = c('Enriched'))
+Long_samples_absolute_3$Treatment <- factor(Long_samples_absolute_3$Treatment, levels = c('Untreated','Mock', 'gnoHpa', 'Hpa'))
+Long_samples_absolute_3$Timepoint <- factor(Long_samples_absolute_3$Timepoint, levels = c('week_1', 'week_2', 'week_3', 'week_4', 'week_5'))
+
+Long_samples_absolute_3$Genus <- gsub('"', "",as.character(Long_samples_absolute_3$Genus))
+library(stringi)
+Long_samples_absolute_3$ASV_tag_2 <- stringi::stri_sub(Long_samples_absolute_3$OTU, 1, 5)
+Long_samples_absolute_3$ASV_tag <- paste(Long_samples_absolute_3$Genus, Long_samples_absolute_3$ASV_tag)
+
+
+G1 <- Long_samples_absolute_3
+
+#Fig. S5
+selection1_stat <- G1 %>%
+  dplyr::group_by(OTU, Treatment, Timepoint, Sample) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance_per_gram)) %>%
+  dplyr::group_by(Treatment, Timepoint, Sample) %>%
+  dplyr::summarise(mean_abundance2 = sum(mean_abundance))
+
+
+selection1_stat$mean_abundance2 <- selection1_stat$mean_abundance2+1
+selection1_stat$mean_abundance2 <- log10(selection1_stat$mean_abundance2)
+
+
+selection1_stat_sub <- selection1_stat
+vec_label <- c('1', '2', '3', '4', '5')
+absolute <- ggplot(selection1_stat_sub, aes(x = Treatment, y = mean_abundance2, fill = Treatment)) +
+  geom_violin(trim=TRUE)+
+  #geom_boxplot(fatten = 0.1, outlier.shape = NA) +
+  #geom_line(aes(x = Timepoint, y = mean_abundance2, group = Line), size = 0.25) +
+  facet_grid(~Timepoint) +
+  geom_jitter(size = 0.5, width = 0.25, height = 0)+
+  #xlab('') +
+  ylab("Log(10) 16S copy number/gram") +
+  ylim(c(0,10))+
+  scale_fill_manual(values=c("Mock" = "blue","Hpa" = "red", "gnoHpa" = "orange", "Untreated" = "black"))+ #, "#66CC33", "#FF33CC")) + #, "#66CC33", "lightblue", "blue", "#FF33CC")) +
+  theme(axis.text.x = element_text(size=10, angle = 90)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10))+
+  theme(axis.title.x = element_blank(),
+        axis.text.x=element_text(angle = 45, hjust = 1, size = 10))
+#scale_x_discrete(labels= vec_label)
+print(absolute)
+ggsave(file="absolute_abundance_logscale_12ASVs.svg", plot=absolute, width=7, height=2)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_1')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_2')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_3')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_4')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_5')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+#Fig. 3E
+G1 <- subset(G1, OTU == "ed6be6f35c692c6166ff8442f30ba282")
+
+selection1_stat <- G1 %>%
+  dplyr::group_by(OTU, Treatment, Timepoint, Sample) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance_per_gram)) %>%
+  dplyr::group_by(Treatment, Timepoint, Sample) %>%
+  dplyr::summarise(mean_abundance2 = sum(mean_abundance))
+
+
+selection1_stat$mean_abundance2 <- selection1_stat$mean_abundance2+1
+selection1_stat$mean_abundance2 <- log10(selection1_stat$mean_abundance2)
+
+
+selection1_stat_sub <- selection1_stat
+vec_label <- c('1', '2', '3', '4', '5')
+absolute <- ggplot(selection1_stat_sub, aes(x = Treatment, y = mean_abundance2, fill = Treatment)) +
+  geom_violin(trim=TRUE)+
+  #geom_boxplot(fatten = 0.1, outlier.shape = NA) +
+  #geom_line(aes(x = Timepoint, y = mean_abundance2, group = Line), size = 0.25) +
+  facet_grid(~Timepoint) +
+  geom_jitter(size = 0.5, width = 0.25, height = 0)+
+  #xlab('') +
+  ylab("Log(10) 16S copy number/gram") +
+  ylim(c(0,10))+
+  scale_fill_manual(values=c("Mock" = "blue","Hpa" = "red", "gnoHpa" = "orange", "Untreated" = "black"))+ #, "#66CC33", "#FF33CC")) + #, "#66CC33", "lightblue", "blue", "#FF33CC")) +
+  theme(axis.text.x = element_text(size=10, angle = 90)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10))+
+  theme(axis.title.x = element_blank(),
+        axis.text.x=element_text(angle = 45, hjust = 1, size = 10))
+#scale_x_discrete(labels= vec_label)
+print(absolute)
+ggsave(file="absolute_abundance_logscale_Sphingobium.svg", plot=absolute, width=7, height=2)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_1')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_2')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_3')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_4')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+selection1_stat_sub <- subset(selection1_stat, Timepoint == 'week_5')
+anova_treatment <- aov(mean_abundance2 ~ Treatment, data = selection1_stat_sub)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+
+## Fig. 3 ####
+library(DESeq2)
+library(phyloseq)
+library(vegan)
+library(ggplot2)
+library(devtools)
+library(pairwiseAdonis)
+library(ggpubr)
+library(multcompView)
+library(DescTools)
+library(data.table)
+library(textshape)
+library(scales)
+library(picante)
+library(plyr)
+library(stringr)
+library(UpSetR)
+library(dplyr)
+library(tidyr)
+library(mixOmics)
+
+setwd("C:/Users/4255607/OneDrive - Universiteit Utrecht/PhD/Experiments/Chapter 4/Figures chapter 4/Sequencing data chapter 4 neat/Compartment experiment")
+##import data
+metadata <- import_qiime_sample_data("Metadata.txt")
+ASV_table <- import_biom(BIOMfilename = "Compartments_feature_table_filtered_437_5.biom", treefilename = "tree.nwk") #not rarified
+reference_seqs <- Biostrings::readDNAStringSet(file = "dna-sequences.fasta", format = "fasta", nrec = -1L, skip = 0L, seek.first.rec = FALSE, use.names = TRUE)
+ASV_table_meta <- merge_phyloseq(ASV_table, metadata, reference_seqs)
+colnames(tax_table(ASV_table_meta)) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+##remove salinibacter reads
+ASV_table_meta_no_salini2 <- subset_samples(ASV_table_meta, Treatment != "Salinibacter")
+ASV_table_meta_no_salini1 <- subset_samples(ASV_table_meta_no_salini2, Treatment != "Blank")
+ASV_table_meta_no_salini <- subset_taxa(ASV_table_meta_no_salini1, Genus != "Salinibacter" | is.na(Genus))
+
+## remove samples that did not sequence well or are obvious outliers
+vec_subset <- c("B-M-G2-1", "P-M-G1-4", "P-M-G1-3","E-H-G2-10", "WR-H-G2-2", "E-H-G2-2", "E-M-G2-1", "B-M-G1-4", "E-M-G2-7", "E-H-G2-7", "E-H-G2-6") #
+ASV_table_meta_no_salini <- subset_samples(ASV_table_meta_no_salini, !(SampleID %in% vec_subset))
+
+vec_subset <- c("P-M-G1-5", "P-M-G2-4", "P-M-G2-2")
+ASV_table_meta_no_salini <- subset_samples(ASV_table_meta_no_salini, !(SampleID %in% vec_subset))
+
+## Remove whole root treatment
+ASV_table_meta_no_salini <- subset_samples(ASV_table_meta_no_salini, Compartment != "Whole_root")
+
+samples_relative = transform_sample_counts(ASV_table_meta_no_salini, function(x) x/sum(x))
+
+theme_set(theme_bw())
+
+##Fig. S7
+### upset ###
+Bulk <- subset_samples(ASV_table_meta_no_salini, Compartment == "Bulk")
+WO <- subset_samples(ASV_table_meta_no_salini, Compartment == "Wash_off")
+Endo <- subset_samples(ASV_table_meta_no_salini, Compartment == "Endosphere")
+Phyllo <- subset_samples(ASV_table_meta_no_salini, Compartment == "Phyllosphere")
+
+ASV_table_B <- as.data.frame(otu_table(Bulk))
+ASV_table_WO <- as.data.frame(otu_table(WO))
+ASV_table_E <- as.data.frame(otu_table(Endo))
+ASV_table_P <- as.data.frame(otu_table(Phyllo))
+
+sum_B<-rowSums(ASV_table_B, na.rm = TRUE)
+sum_WO<-rowSums(ASV_table_WO, na.rm = TRUE)
+sum_E<-rowSums(ASV_table_E, na.rm = TRUE)
+sum_P<-rowSums(ASV_table_P, na.rm = TRUE)
+
+Upset_input_compartments <- data.frame(
+  Bulk=sum_B,
+  Wash_off=sum_WO,
+  Endosphere=sum_E,
+  Phyllosphere=sum_P
+)
+
+#### change sum!=1 into 1
+Upset_input_compartments[Upset_input_compartments != 0]<- 1
+write.csv(Upset_input_compartments, upset.csv)
+vec_sets <- c("black", "orange", "gold", "dark green")
+
+Data <- as.data.frame(Upset_input_compartments)
+
+pdf(file="Upset_plot2.pdf", width = 15, height = 8)
+upset(Data,
+      order.by = "freq",
+      nintersects = NA,
+      #cutoff = 32,
+      #order.by = "degree",
+      keep.order = TRUE,
+      #set.metadata = ,
+      #intersections = list(list("Sprout","Adhering soil"),list("Sprout","Peel")),
+      matrix.color = "black",
+      #main.bar.color = vec_bar_fun,
+      mainbar.y.label = "Unique ASVs per comparison",
+      sets.bar.color = vec_sets,
+      sets.x.label = "Total ASVs per soil type",
+      point.size = 4,
+      #line.size = 0.5,
+      show.numbers = "yes",
+      number.angles = 0,
+      #group.by = "sets",
+      #shade.color = "grey",
+      #matrix.dot.alpha = 0.5,
+      empty.intersections = "on",
+      sets = c("Bulk", "Wash_off", "Endosphere", "Phyllosphere"),
+      #cutoff = 20,
+      mb.ratio = c(0.7, 0.3),
+      set_size.show = TRUE,
+      set_size.scale_max = 13000,
+      set_size.numbers_size = 7,
+      text.scale = c(2, 2.5, 1.8, 2, 2, 2))
+dev.off()
+
+Long_samples_relative <- samples_relative %>%
+  psmelt() # Melt to long format
+Long_samples_relative$Abundance = Long_samples_relative$Abundance *100
+overlap <- read.table("ASV_list_detected.txt", header = TRUE)
+Long_samples_relative_2 <- left_join(Long_samples_relative, overlap, by = "OTU")
+overlap2 <- read.table("Core_HAM.txt", header = TRUE)
+Long_samples_relative_3 <- left_join(Long_samples_relative_2, overlap2, by = "OTU")
+Long_samples_relative_3$Treatment <- factor(Long_samples_relative_3$Treatment, levels = c('Mock', 'Hpa'))
+Long_samples_relative_3$Compartment <- factor(Long_samples_relative_3$Compartment, levels = c('Bulk', 'Wash_off', 'Endosphere', 'Phyllosphere'))
+Long_samples_relative_3$Status2 <- factor(Long_samples_relative_3$Status2, levels = c('soil_derived', 'plant_derived'))
+
+selection <- Long_samples_relative_3 %>%
+  dplyr::group_by(OTU, Status2, Compartment) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance)) %>%
+  dplyr::group_by(Status2, Compartment) %>%
+  dplyr::summarise(mean_abundance_2 = sum(mean_abundance))
+
+vec_label <- c('Bulk', 'Rhizosphere', 'Root endosphere', 'Phyllosphere')
+plot <- ggplot(selection, aes(x = Compartment, y = mean_abundance_2, fill = Status2)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  scale_y_continuous(name = "relative abundance (%)") +
+  scale_fill_manual(values = c(soil_derived = 'black', plant_derived = 'turquoise')) +
+  scale_x_discrete(labels= vec_label)+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 45, hjust = 1),
+        axis.title.y=element_text(size=15),
+        axis.text.y=element_text(size=15))
+print(plot)
+ggsave(file="Abundances_ASVs_detected.svg", plot=plot, width=6, height=4)
+
+#Fig. 4A
+## Sankey plot
+Long_samples_relative <- samples_relative %>%
+  psmelt() # Melt to long format
+Long_samples_relative$Abundance = Long_samples_relative$Abundance *100
+overlap <- read.table("ASV_most_abundant_in.txt", header = TRUE)
+Long_samples_relative_3 <- left_join(Long_samples_relative, overlap, by = "OTU")
+Long_samples_relative_3$Treatment <- factor(Long_samples_relative_3$Treatment, levels = c('Mock', 'Hpa'))
+Long_samples_relative_3$Compartment <- factor(Long_samples_relative_3$Compartment, levels = c('Bulk', 'Wash_off', 'Endosphere', 'Phyllosphere'))
+Long_samples_relative_3$Status4 <- factor(Long_samples_relative_3$Status4, levels = c('Bulk', 'Rhizosphere', 'Root_endosphere', 'Phyllosphere'))
+
+library(ggalluvial)
+
+Sankey <- subset(Long_samples_relative_3, Treatment == "Mock")
+Sankey <- subset(Sankey, Generation == "Generation_1")
+Sankey_input <- Sankey %>%
+  dplyr::group_by(OTU, Status4, Compartment) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance)) %>%
+  dplyr::group_by(Status4, Compartment) %>%
+  dplyr::summarise(mean_abundance_2 = sum(mean_abundance))
+
+Sankey_input_df <- as.data.frame(Sankey_input)
+write.csv(Sankey_input_df, file = 'Sankey_mock_generation_1_highest_abundance_per_compartment_core_HAM.csv')
+
+Sankey <- subset(Long_samples_relative_3, Treatment == "Mock")
+Sankey <- subset(Sankey, Generation == "Generation_2")
+Sankey_input <- Sankey %>%
+  dplyr::group_by(OTU, Status4, Compartment) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance)) %>%
+  dplyr::group_by(Status4, Compartment) %>%
+  dplyr::summarise(mean_abundance_2 = sum(mean_abundance))
+
+Sankey_input_df <- as.data.frame(Sankey_input)
+write.csv(Sankey_input_df, file = 'Sankey_mock_generation_2_highest_abundance_per_compartment_core_HAM.csv')
+
+Sankey <- subset(Long_samples_relative_3, Treatment == "Hpa")
+Sankey <- subset(Sankey, Generation == "Generation_1")
+Sankey_input <- Sankey %>%
+  dplyr::group_by(OTU, Status4, Compartment) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance)) %>%
+  dplyr::group_by(Status4, Compartment) %>%
+  dplyr::summarise(mean_abundance_2 = sum(mean_abundance))
+
+Sankey_input_df <- as.data.frame(Sankey_input)
+write.csv(Sankey_input_df, file = 'Sankey_Hpa_generation_1_highest_abundance_per_compartment_core_HAM.csv')
+
+Sankey <- subset(Long_samples_relative_3, Treatment == "Hpa")
+Sankey <- subset(Sankey, Generation == "Generation_2")
+Sankey_input <- Sankey %>%
+  dplyr::group_by(OTU, Status4, Compartment) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance)) %>%
+  dplyr::group_by(Status4, Compartment) %>%
+  dplyr::summarise(mean_abundance_2 = sum(mean_abundance))
+
+Sankey_input_df <- as.data.frame(Sankey_input)
+write.csv(Sankey_input_df, file = 'Sankey_Hpa_generation_2_highest_abundance_per_compartment_core_HAM.csv')
+
+Sankey_mock_gen1 <- read.table("Sankey_mock_generation_1_highest_abundance_per_compartment_core_HAM.csv", header = TRUE, sep = ',')
+Sankey_mock_gen2 <- read.table("Sankey_mock_generation_2_highest_abundance_per_compartment_core_HAM.csv", header = TRUE, sep = ',')
+Sankey_Hpa_gen1 <- read.table("Sankey_Hpa_generation_1_highest_abundance_per_compartment_core_HAM.csv", header = TRUE, sep = ',')
+Sankey_Hpa_gen2 <- read.table("Sankey_Hpa_generation_2_highest_abundance_per_compartment_core_HAM.csv", header = TRUE, sep = ',')
+
+
+Sankey_mock_gen1$Compartment <- factor(Sankey_mock_gen1$Compartment, levels = c('Bulk', 'Wash_off', 'Endosphere', 'Phyllosphere'))
+Sankey_mock_gen2$Compartment <- factor(Sankey_mock_gen2$Compartment, levels = c('Bulk', 'Wash_off', 'Endosphere', 'Phyllosphere'))
+Sankey_Hpa_gen1$Compartment <- factor(Sankey_Hpa_gen1$Compartment, levels = c('Bulk', 'Wash_off', 'Endosphere', 'Phyllosphere'))
+Sankey_Hpa_gen2$Compartment <- factor(Sankey_Hpa_gen2$Compartment, levels = c('Bulk', 'Wash_off', 'Endosphere', 'Phyllosphere'))
+
+Sankey_mock_gen1$Status4 <- factor(Sankey_mock_gen1$Status4, levels = c('Bulk', 'Rhizosphere', 'Root_endosphere', 'Phyllosphere'))
+Sankey_mock_gen2$Status4 <- factor(Sankey_mock_gen2$Status4, levels = c('Bulk', 'Rhizosphere', 'Root_endosphere', 'Phyllosphere'))
+Sankey_Hpa_gen1$Status4 <- factor(Sankey_Hpa_gen1$Status4, levels = c('Bulk', 'Rhizosphere', 'Root_endosphere', 'Phyllosphere'))
+Sankey_Hpa_gen2$Status4 <- factor(Sankey_Hpa_gen2$Status4, levels = c('Bulk', 'Rhizosphere', 'Root_endosphere', 'Phyllosphere'))
+
+Sankey_mock_gen1 <- Sankey_mock_gen1[,-1]
+Sankey_mock_gen2 <- Sankey_mock_gen2[,-1]
+Sankey_Hpa_gen1 <- Sankey_Hpa_gen1[,-1]
+Sankey_Hpa_gen2 <- Sankey_Hpa_gen2[,-1]
+
+#Sankey_mock_gen1 <- subset( Sankey_mock_gen1, Compartment != "Whole_root")
+#Sankey_mock_gen2 <- subset( Sankey_mock_gen2, Compartment != "Whole_root")
+#Sankey_Hpa_gen1 <- subset( Sankey_Hpa_gen1, Compartment != "Whole_root")
+#Sankey_Hpa_gen2 <- subset( Sankey_Hpa_gen2, Compartment != "Whole_root")
+
+
+Sankey <- ggplot(Sankey_mock_gen1,
+                 aes(x = Compartment, stratum = Compartment, alluvium = Status4, y= mean_abundance_2,
+                     fill = Status4, label = Status4)) +
+  scale_fill_manual(values = c(Bulk='black', Rhizosphere='orange', Root_endosphere='gold', Phyllosphere='dark green')) +
+  geom_flow(stat = "alluvium") +
+  geom_bar(stat = "identity", color = '#333333', width = 0.35) +
+  scale_y_continuous(name = "relative abundance (%)") +
+  geom_stratum(alpha =0) +
+  theme(legend.position = "bottom") +
+  theme_classic()+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=10, angle = 30, hjust = 1),
+        axis.title.y=element_text(size=10),
+        axis.text.y=element_text(size=10))
+print(Sankey) 
+ggsave(file="Sankey_associated_ASV_highest_abundances_per_compartments_mock_gen1_core_HAM.svg", plot=Sankey, width=4.5, height=3) 
+
+Sankey <- ggplot(Sankey_mock_gen2,
+                 aes(x = Compartment, stratum = Compartment, alluvium = Status4, y= mean_abundance_2,
+                     fill = Status4, label = Status4)) +
+  scale_fill_manual(values = c(Bulk='black', Rhizosphere='orange', Root_endosphere='gold', Phyllosphere='dark green')) +
+  geom_flow(stat = "alluvium") +
+  geom_bar(stat = "identity", color = '#333333', width = 0.35) +
+  scale_y_continuous(name = "relative abundance (%)") +
+  geom_stratum(alpha =0) +
+  theme(legend.position = "bottom") +
+  theme_classic()+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=10, angle = 30, hjust = 1),
+        axis.title.y=element_text(size=10),
+        axis.text.y=element_text(size=10))
+print(Sankey) 
+ggsave(file="Sankey_associated_ASV_highest_abundances_per_compartments_mock_gen2_core_HAM.svg", plot=Sankey, width=4.5, height=3)
+
+Sankey <- ggplot(Sankey_Hpa_gen1,
+                 aes(x = Compartment, stratum = Compartment, alluvium = Status4, y= mean_abundance_2,
+                     fill = Status4, label = Status4)) +
+  scale_fill_manual(values = c(Bulk='black', Rhizosphere='orange', Root_endosphere='gold', Phyllosphere='dark green')) +
+  geom_flow(stat = "alluvium") +
+  geom_bar(stat = "identity", color = '#333333', width = 0.35) +
+  scale_y_continuous(name = "relative abundance (%)") +
+  geom_stratum(alpha =0) +
+  theme(legend.position = "bottom") +
+  theme_classic()+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=10, angle = 30, hjust = 1),
+        axis.title.y=element_text(size=10),
+        axis.text.y=element_text(size=10))
+print(Sankey) 
+ggsave(file="Sankey_associated_ASV_highest_abundances_per_compartments_Hpa_gen1_core_HAM.svg", plot=Sankey, width=4.5, height=3)
+
+Sankey <- ggplot(Sankey_Hpa_gen2,
+                 aes(x = Compartment, stratum = Compartment, alluvium = Status4, y= mean_abundance_2,
+                     fill = Status4, label = Status4)) +
+  scale_fill_manual(values = c(Bulk='black', Rhizosphere='orange', Root_endosphere='gold', Phyllosphere='dark green')) +
+  geom_flow(stat = "alluvium") +
+  geom_bar(stat = "identity", color = '#333333', width = 0.35) +
+  scale_y_continuous(name = "relative abundance (%)") +
+  geom_stratum(alpha =0) +
+  theme(legend.position = "bottom") +
+  theme_classic()+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=10, angle = 30, hjust = 1),
+        axis.title.y=element_text(size=10),
+        axis.text.y=element_text(size=10))
+print(Sankey) 
+ggsave(file="Sankey_associated_ASV_highest_abundances_per_compartments_Hpa_gen2_core_HAM.svg", plot=Sankey, width=4.5, height=3)
+
+#Fig.S8
+Long_samples_relative <- ASV_table_meta_no_salini %>%
+  psmelt() # Melt to long format
+Long_samples_relative$Abundance = Long_samples_relative$Abundance *100
+overlap <- read.table("ASV_most_abundant_in.txt", header = TRUE)
+Long_samples_relative_3 <- left_join(Long_samples_relative, overlap, by = "OTU")
+Long_samples_relative_3$Treatment <- factor(Long_samples_relative_3$Treatment, levels = c('Mock', 'Hpa'))
+Long_samples_relative_3$Compartment <- factor(Long_samples_relative_3$Compartment, levels = c('Bulk', 'Wash_off', 'Endosphere', 'Phyllosphere'))
+Long_samples_relative_3$Status4 <- factor(Long_samples_relative_3$Status4, levels = c('Bulk', 'Rhizosphere', 'Root_endosphere', 'Phyllosphere'))
+
+
+## identify top phylla above ... %
+selection <- Long_samples_relative_3 %>%
+  dplyr::group_by(OTU, Phylum) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance))
+
+sum <- sum(selection$mean_abundance)
+
+selection$relative <- selection$mean_abundance / sum * 100
+
+selection1 <- selection %>%
+  dplyr::group_by(Phylum) %>%
+  dplyr::summarise(mean_abundance_2 = sum(relative))
+
+
+#top13 phyla, above 0.1%
+vec_phyla <- c("Proteobacteria", "Actinobacteria", "Planctomycetes", "Acidobacteria", "Chloroflexi", "Bacteroidetes", "Verrucomicrobia", "Firmicutes","Gemmatimonadetes", "Armatimonadetes", 'Nitrospirae', "Saccharibacteria", "Cyanobacteria")
+
+subset_associated <- subset(Long_samples_relative_3, Status4 == 'Bulk')
+subset_associated <- subset(subset_associated, Compartment == 'Bulk')
+selection <- subset_associated %>%
+  dplyr::group_by(OTU, Status4, Phylum) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance))
+
+sum <- sum(selection$mean_abundance)
+
+selection$relative <- selection$mean_abundance / sum * 100
+
+selection1 <- selection %>%
+  dplyr::group_by(Status4, Phylum) %>%
+  dplyr::summarise(mean_abundance_2 = sum(relative))
+
+selection1$Phylum[!selection1$Phylum %in% vec_phyla] <- NA 
+
+vec1 <- c("Bulk")
+taxbarplot <- ggplot(selection1, aes(x = Status4, y = mean_abundance_2, fill = Phylum)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  scale_y_continuous(name = "relative abundance (%)") +
+  facet_wrap(~Status4, nrow = 1)+
+  #scale_fill_manual(values = c(Depleted='red', Enriched='blue')) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 0, hjust = 0.5),
+        axis.title.y=element_text(size=20),
+        axis.text.y=element_text(size=20))
+print(taxbarplot)
+ggsave(file="Barplot_associated_ASVs_most_abundant_per_compartment_tax_bulk.svg", plot=taxbarplot, width=4, height=5)
+
+subset_associated <- subset(Long_samples_relative_3, Status4 == 'Phyllosphere')
+subset_associated <- subset(subset_associated, Compartment == 'Phyllosphere')
+selection <- subset_associated %>%
+  dplyr::group_by(OTU, Status4, Phylum) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance))
+
+sum <- sum(selection$mean_abundance)
+
+selection$relative <- selection$mean_abundance / sum * 100
+
+selection1 <- selection %>%
+  dplyr::group_by(Status4, Phylum) %>%
+  dplyr::summarise(mean_abundance_2 = sum(relative))
+
+selection1$Phylum[!selection1$Phylum %in% vec_phyla] <- NA 
+
+vec1 <- c("Phyllosphere")
+taxbarplot <- ggplot(selection1, aes(x = Status4, y = mean_abundance_2, fill = Phylum)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  scale_y_continuous(name = "relative abundance (%)") +
+  facet_wrap(~Status4, nrow = 1)+
+  #scale_fill_manual(values = c(Depleted='red', Enriched='blue')) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 0, hjust = 0.5),
+        axis.title.y=element_text(size=20),
+        axis.text.y=element_text(size=20))
+print(taxbarplot)
+ggsave(file="Barplot_associated_ASVs_most_abundant_per_compartment_tax_phyllo.svg", plot=taxbarplot, width=4, height=5)
+
+subset_associated <- subset(Long_samples_relative_3, Status4 == 'Rhizosphere')
+subset_associated <- subset(subset_associated, Compartment == 'Wash_off')
+selection <- subset_associated %>%
+  dplyr::group_by(OTU, Status4, Phylum) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance))
+
+sum <- sum(selection$mean_abundance)
+
+selection$relative <- selection$mean_abundance / sum * 100
+
+selection1 <- selection %>%
+  dplyr::group_by(Status4, Phylum) %>%
+  dplyr::summarise(mean_abundance_2 = sum(relative))
+
+selection1$Phylum[!selection1$Phylum %in% vec_phyla] <- NA 
+
+vec1 <- c("Rhizosphere")
+taxbarplot <- ggplot(selection1, aes(x = Status4, y = mean_abundance_2, fill = Phylum)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  scale_y_continuous(name = "relative abundance (%)") +
+  facet_wrap(~Status4, nrow = 1)+
+  #scale_fill_manual(values = c(Depleted='red', Enriched='blue')) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 0, hjust = 0.5),
+        axis.title.y=element_text(size=20),
+        axis.text.y=element_text(size=20))
+print(taxbarplot)
+ggsave(file="Barplot_associated_ASVs_most_abundant_per_compartment_tax_rhizosphere.svg", plot=taxbarplot, width=4, height=5)
+
+subset_associated <- subset(Long_samples_relative_3, Status4 == 'Root_endosphere')
+subset_associated <- subset(subset_associated, Compartment == 'Endosphere')
+selection <- subset_associated %>%
+  dplyr::group_by(OTU, Status4, Phylum) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance))
+
+sum <- sum(selection$mean_abundance)
+
+selection$relative <- selection$mean_abundance / sum * 100
+
+selection1 <- selection %>%
+  dplyr::group_by(Status4, Phylum) %>%
+  dplyr::summarise(mean_abundance_2 = sum(relative))
+
+selection1$Phylum[!selection1$Phylum %in% vec_phyla] <- NA 
+
+vec1 <- c("Root_endosphere")
+taxbarplot <- ggplot(selection1, aes(x = Status4, y = mean_abundance_2, fill = Phylum)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  scale_y_continuous(name = "relative abundance (%)") +
+  facet_wrap(~Status4, nrow = 1)+
+  #scale_fill_manual(values = c(Depleted='red', Enriched='blue')) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 0, hjust = 0.5),
+        axis.title.y=element_text(size=20),
+        axis.text.y=element_text(size=20))
+print(taxbarplot)
+ggsave(file="Barplot_associated_ASVs_most_abundant_per_compartment_tax_Endosphere.svg", plot=taxbarplot, width=4, height=5)
+
+#Fig. 4B
+##PCoA plot
+
+samples_relative.ord <- ordinate(samples_relative, "PCoA", "bray") #unweighted jaccard requires binary=TRUE
+samples_relative_bray_PCoA_1 = plot_ordination(samples_relative, samples_relative.ord, type="samples", shape = "Treatment", color="Compartment") #, axes = 2:3)
+print(samples_relative_bray_PCoA_1)
+
+samples_relative_bray_PCoA_4 <- samples_relative_bray_PCoA_1 +
+  facet_grid( ~ Generation) +
+  scale_color_manual(values=c("Bulk" = "black","Phyllosphere" = "dark green", "Wash_off" = "orange", "Endosphere" = "gold"))+ #, "#66CC33", "#FF33CC")) + #, "#66CC33", "lightblue", "blue", "#FF33CC")) +
+  stat_ellipse()
+print(samples_relative_bray_PCoA_4)
+ggsave(file="PCoA.svg", plot=samples_relative_bray_PCoA_4, width=7, height=3)
+
+bray <- phyloseq::distance(samples_relative, method = "bray")
+sampledf <- data.frame(sample_data(samples_relative))
+adonis2(bray ~ Compartment + Treatment + Generation + Treatment*Compartment + Treatment*Generation + Compartment*Generation + Treatment*Compartment*Generation, data = sampledf, permutations = 9999)
+pairwise.adonis(x = bray, factors = sample_data(samples_relative)$Compartment,
+                sim.method = "bray", perm = 9999, p.adjust.m = "fdr")
+
+samples_relative_sub <- subset_samples(samples_relative, Compartment == "Bulk" & Generation == 'Generation_1')
+bray <- phyloseq::distance(samples_relative_sub, method = "bray")
+sampledf <- data.frame(sample_data(samples_relative_sub))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+
+samples_relative_sub <- subset_samples(samples_relative, Compartment == "Bulk" & Generation == 'Generation_2')
+bray <- phyloseq::distance(samples_relative_sub, method = "bray")
+sampledf <- data.frame(sample_data(samples_relative_sub))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+
+samples_relative_sub <- subset_samples(samples_relative, Compartment == "Wash_off" & Generation == 'Generation_1')
+bray <- phyloseq::distance(samples_relative_sub, method = "bray")
+sampledf <- data.frame(sample_data(samples_relative_sub))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+
+samples_relative_sub <- subset_samples(samples_relative, Compartment == "Wash_off" & Generation == 'Generation_2')
+bray <- phyloseq::distance(samples_relative_sub, method = "bray")
+sampledf <- data.frame(sample_data(samples_relative_sub))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+
+samples_relative_sub <- subset_samples(samples_relative, Compartment == "Endosphere" & Generation == 'Generation_1')
+bray <- phyloseq::distance(samples_relative_sub, method = "bray")
+sampledf <- data.frame(sample_data(samples_relative_sub))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+
+samples_relative_sub <- subset_samples(samples_relative, Compartment == "Endosphere" & Generation == 'Generation_2')
+bray <- phyloseq::distance(samples_relative_sub, method = "bray")
+sampledf <- data.frame(sample_data(samples_relative_sub))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+
+samples_relative_sub <- subset_samples(samples_relative, Compartment == "Phyllosphere" & Generation == 'Generation_1')
+bray <- phyloseq::distance(samples_relative_sub, method = "bray")
+sampledf <- data.frame(sample_data(samples_relative_sub))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+
+samples_relative_sub <- subset_samples(samples_relative, Compartment == "Phyllosphere" & Generation == 'Generation_2')
+bray <- phyloseq::distance(samples_relative_sub, method = "bray")
+sampledf <- data.frame(sample_data(samples_relative_sub))
+adonis2(bray ~ Treatment, data = sampledf, permutations = 9999)
+
+#make excel file wiht PERMANOVA outputs R2
+table <- read.table("R2_treatment_compartments.csv", sep = ';', header = TRUE)
+table$Compartment <- factor(table$Compartment, levels = c('Phyllosphere', 'Root_endosphere', 'Rhizosphere', 'Bulk'))
+table_sub <- subset(table, Generation == 'Conditioning')
+stacked_barplot <- ggplot(table_sub, aes(x = Compartment, y = R2, fill = Compartment)) +
+  expand_limits(y = c(0,0.6))+
+  geom_bar(stat = "identity", color = '#333333') +
+  scale_y_continuous(name = "Effect size (R2)") +
+  coord_flip() +
+  scale_fill_manual(values = c(Bulk='black', Rhizosphere='orange', Root_endosphere='gold', Phyllosphere='dark green')) +
+  theme(axis.title.x = element_blank(),
+        legend.position='none',
+        strip.text.x = element_text(size = 10),
+        strip.text.y = element_text(size = 10),
+        #axis.text.x=element_text(),
+        axis.text.x=element_text(angle = 0, hjust = 0.5, size = 10),
+        axis.title.y=element_text(size=10),
+        axis.text.y=element_text(size=10))
+print(stacked_barplot)
+ggsave(file="R2_treatment_per_compartment_conditioning.svg", plot=stacked_barplot, width=6, height=1)
+
+table_sub <- subset(table, Generation == 'Response')
+stacked_barplot <- ggplot(table_sub, aes(x = Compartment, y = R2, fill = Compartment)) +
+  expand_limits(y = c(0,0.6))+
+  geom_bar(stat = "identity", color = '#333333') +
+  scale_y_continuous(name = "Effect size (R2)") +
+  coord_flip() +
+  scale_fill_manual(values = c(Bulk='black', Rhizosphere='orange', Root_endosphere='gold', Phyllosphere='dark green')) +
+  theme(axis.title.x = element_blank(),
+        legend.position='none',
+        strip.text.x = element_text(size = 10),
+        strip.text.y = element_text(size = 10),
+        #axis.text.x=element_text(),
+        axis.text.x=element_text(angle = 0, hjust = 0.5, size = 10),
+        axis.title.y=element_text(size=10),
+        axis.text.y=element_text(size=10))
+print(stacked_barplot)
+ggsave(file="R2_treatment_per_compartment_response.svg", plot=stacked_barplot, width=6, height=1)
+
+#Fig. 4C
+## HAM abundances
+Long_samples_relative <- samples_relative %>%
+  psmelt() # Melt to long format
+Long_samples_relative$Abundance = Long_samples_relative$Abundance *100
+overlap <- read.table("Core_HAM.txt", header = TRUE)
+Long_samples_relative_2 <- left_join(Long_samples_relative, overlap, by = "OTU")
+Long_samples_relative_2 <- subset(Long_samples_relative_2, Status != "NA")
+Long_samples_relative_3 <- Long_samples_relative_2[order(Long_samples_relative_2$Status),]
+Long_samples_relative_3$Status <- factor(Long_samples_relative_3$Status, levels = c('Enriched'))
+Long_samples_relative_3$Treatment <- factor(Long_samples_relative_3$Treatment, levels = c('Mock', 'Hpa'))
+Long_samples_relative_3$Compartment <- factor(Long_samples_relative_3$Compartment, levels = c('Bulk', 'Wash_off', 'Endosphere', 'Phyllosphere'))
+Long_samples_relative_3$Genus <- gsub('"', "",as.character(Long_samples_relative_3$Genus))
+
+selection1_stat <- Long_samples_relative_3 %>%
+  dplyr::group_by(OTU, Treatment, Compartment, Generation, Sample) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance)) %>%
+  dplyr::group_by(Treatment, Compartment, Generation, Sample) %>%
+  dplyr::summarise(mean_abundance2 = sum(mean_abundance))
+
+selection2 <- Long_samples_relative_3 %>%
+  group_by(ASV_tag, Compartment, Generation, Treatment) %>%
+  summarise(mean_abundance = mean(Abundance))
+
+taxbarplot <- ggplot(selection2, aes(x = Treatment, y = mean_abundance, fill = ASV_tag)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  facet_grid(~Compartment+Generation)+
+  scale_y_continuous(name = "Relative HAM abundance (%)") +
+  expand_limits(y = c(0,100))+
+  #scale_fill_manual(values = c(Depleted='red', Enriched='blue')) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  #scale_x_discrete(labels= vec1)+
+  theme(axis.title.x = element_blank(),
+        #legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 0, hjust = 1),
+        axis.title.y=element_text(size=20),
+        axis.text.y=element_text(size=20))
+print(taxbarplot)
+ggsave(file="tax_barplot_core_HAM.svg", plot=taxbarplot, width=15, height=3.5)
+
+selection3 <- subset(selection2, Compartment == 'Bulk')
+taxbarplot <- ggplot(selection3, aes(x = Treatment, y = mean_abundance, fill = ASV_tag)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  facet_grid(~Compartment+Generation)+
+  scale_y_continuous(name = "Relative HAM abundance (%)") +
+  expand_limits(y = c(0,1))+
+  #scale_fill_manual(values = c(Depleted='red', Enriched='blue')) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  #scale_x_discrete(labels= vec1)+
+  theme(axis.title.x = element_blank(),
+        legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 0, hjust = 1),
+        axis.title.y=element_text(size=20),
+        axis.text.y=element_text(size=20))
+print(taxbarplot)
+ggsave(file="tax_barplot_core_HAM_Bulk.svg", plot=taxbarplot, width=4, height=2.5)
+
+selection3 <- subset(selection2, Compartment == 'Wash_off')
+taxbarplot <- ggplot(selection3, aes(x = Treatment, y = mean_abundance, fill = ASV_tag)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  facet_grid(~Compartment+Generation)+
+  scale_y_continuous(name = "Relative HAM abundance (%)") +
+  expand_limits(y = c(0,1))+
+  #scale_fill_manual(values = c(Depleted='red', Enriched='blue')) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  #scale_x_discrete(labels= vec1)+
+  theme(axis.title.x = element_blank(),
+        legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 0, hjust = 1),
+        axis.title.y=element_text(size=20),
+        axis.text.y=element_text(size=20))
+print(taxbarplot)
+ggsave(file="tax_barplot_core_HAM_rhizosphere.svg", plot=taxbarplot, width=4, height=2.5)
+
+selection3 <- subset(selection2, Compartment == 'Endosphere')
+taxbarplot <- ggplot(selection3, aes(x = Treatment, y = mean_abundance, fill = ASV_tag)) +
+  geom_bar(stat = "identity", color = '#333333') +
+  facet_grid(~Compartment+Generation)+
+  scale_y_continuous(name = "Relative HAM abundance (%)") +
+  expand_limits(y = c(0,1))+
+  #scale_fill_manual(values = c(Depleted='red', Enriched='blue')) +
+  #geom_text(data = final, aes(y=mean_abundance_2, label = Letters),vjust=-2,hjust=0.5)+
+  #scale_x_discrete(labels= vec1)+
+  theme(axis.title.x = element_blank(),
+        legend.position='none',
+        strip.text.x = element_text(size = 10),
+        axis.ticks.x=element_blank(),
+        axis.text.x=element_text(size=15, angle = 0, hjust = 1),
+        axis.title.y=element_text(size=20),
+        axis.text.y=element_text(size=20))
+print(taxbarplot)
+ggsave(file="tax_barplot_core_HAM_endosphere.svg", plot=taxbarplot, width=4, height=2.5)
+
+## statistics t.test(vec_control, vec_treatment, alternative = c("less"), var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+#fdr correction was performed in R using BH(vec_ranked_p-values, alpha = 0.05) of the 'sgof' package.
+
+#Fig. S9 and S10
+#Absolute_abundances 
+  taxtab <- as.data.frame(tax_table(ASV_table_meta))
+  salini_ASVs <- subset(taxtab, Genus == "Salinibacter")
+  salini_ASVs$ASV <- rownames(salini_ASVs)
+  salini_ASVs_vec <- as.vector(salini_ASVs$ASV)
+  
+  ASV_table_meta_no_salini2 <- subset_samples(ASV_table_meta, Treatment != "Salinibacter")
+  ASV_table_meta_no_salini1 <- subset_samples(ASV_table_meta_no_salini2, Treatment != "Blank")
+  vec_subset <- c("B-M-G2-1", "P-M-G1-4", "P-M-G1-3","E-H-G2-10", "WR-H-G2-2", "E-H-G2-2", "E-M-G2-1", "B-M-G1-4", "E-M-G2-7", "E-H-G2-7", "E-H-G2-6") #
+  ASV_table_meta_salini2 <- subset_samples(ASV_table_meta_no_salini1, !(SampleID %in% vec_subset))
+  vec_subset <- c("P-M-G1-5", "P-M-G2-4", "P-M-G2-2") 
+  ASV_table_meta_salini1 <- subset_samples(ASV_table_meta_salini2, !(SampleID %in% vec_subset))
+  ASV_table_meta_salini <- subset_samples(ASV_table_meta_salini1, Compartment != "Whole_root")
+  
+  
+  B_sub <- subset_samples(ASV_table_meta_salini, Compartment == "Bulk")
+  WO_sub <- subset_samples(ASV_table_meta_salini, Compartment == "Wash_off")
+  E_sub <- subset_samples(ASV_table_meta_salini, Compartment == "Endosphere")
+  P_sub <- subset_samples(ASV_table_meta_salini, Compartment == "Phyllosphere")
+  OTU_tab_salini_B <- as.data.frame(otu_table(B_sub))
+  OTU_tab_salini_WO <- as.data.frame(otu_table(WO_sub))
+  OTU_tab_salini_E <- as.data.frame(otu_table(E_sub))
+  OTU_tab_salini_P <- as.data.frame(otu_table(P_sub))
+  
+  B <-  (35.97*2.46*10^5)
+  WO <- (21.04*2.46*10^5)
+  E <- 0.165*2.46*10^5 
+  P <- 11.10*2.46*10^5
+  
+  B_cells_table <- (OTU_tab_salini_B*B)
+  WO_cells_table <- (OTU_tab_salini_WO*WO)
+  E_cells_table <- (OTU_tab_salini_E*E)
+  P_cells_table <- (OTU_tab_salini_P*P)
+  
+  cells_table <- cbind(B_cells_table, WO_cells_table, E_cells_table, P_cells_table)
+  
+  cells_table_backup <- cells_table
+  
+  for (name in colnames(cells_table)) cells_table[,name] <- cells_table[,name]/otu_table(ASV_table_meta_salini)["cc7d89dd6e92976234083313b57c05dc",name]
+  
+  cell_table_salini <- cells_table[salini_ASVs_vec,]
+  
+  write.csv(cells_table, file = "salinibacter_OTU_table.csv")
+  
+metadata <- import_qiime_sample_data("Metadata.txt")
+ASV_table_absolute <- import_biom(BIOMfilename = "Physeq_absolute_counts.biom", treefilename = "tree.nwk") #not rarified
+reference_seqs <- Biostrings::readDNAStringSet(file = "dna-sequences.fasta", format = "fasta", nrec = -1L, skip = 0L, seek.first.rec = FALSE, use.names = TRUE)
+ASV_table_meta_absolute <- merge_phyloseq(ASV_table_absolute, metadata, reference_seqs)
+colnames(tax_table(ASV_table_meta_absolute)) <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+theme_set(theme_bw())
+
+ASV_table_meta_absolute <- subset_taxa(ASV_table_meta_absolute, Genus != "Salinibacter" | is.na(Genus))
+ASV_table_meta_absolute <- subset_samples(ASV_table_meta_absolute, Compartment != 'Whole_root')
+
+Long_samples_absolute <- ASV_table_meta_absolute %>%
+  psmelt() # Melt to long format
+overlap <- read.table("Core_HAM.txt", header = TRUE)
+Long_samples_absolute_2 <- left_join(Long_samples_absolute, overlap, by = "OTU")
+#Long_samples_absolute_2 <- subset(Long_samples_absolute_2, Status != "NA")
+#Long_samples_absolute_2 <- subset(Long_samples_absolute_2, Status != "Enriched")
+#Long_samples_relative_2$Status[is.na(Long_samples_relative_3$Status)] <- "Not_enriched"
+Long_samples_absolute_3 <- Long_samples_absolute_2[order(Long_samples_absolute_2$Status),]
+#Long_samples_absolute_3$Status <- factor(Long_samples_absolute_3$Status, levels = c('Enriched'))
+Long_samples_absolute_3$Treatment <- factor(Long_samples_absolute_3$Treatment, levels = c('Mock', 'Hpa'))
+Long_samples_absolute_3$Compartment <- factor(Long_samples_absolute_3$Compartment, levels = c('Bulk', 'Wash_off', 'Endosphere', 'Phyllosphere'))
+Long_samples_absolute_3$Genus <- gsub('"', "",as.character(Long_samples_absolute_3$Genus))
+
+#Generation 1
+
+G1 <- Long_samples_absolute_3
+#G1 <- subset(G1, !(Status %in% "Enriched"))
+
+selection1_stat <- G1 %>%
+  dplyr::group_by(OTU, Treatment, Sample, Compartment, Generation) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance)) %>%
+  dplyr::group_by(Treatment, Sample, Compartment, Generation) %>%
+  dplyr::summarise(mean_abundance2 = sum(mean_abundance))
+
+selection1_stat$Treatment <- factor(selection1_stat$Treatment, levels = c("Mock", "Hpa"))
+selection1_stat$Compartment <- factor(selection1_stat$Compartment, levels = c("Bulk", "Wash_off", "Endosphere", "Phyllosphere"))
+selection1_stat$mean_abundance2 <- selection1_stat$mean_abundance2+1
+selection1_stat$mean_abundance2 <- log10(selection1_stat$mean_abundance2)
+
+absolute <- ggplot(selection1_stat, aes(x = Treatment, y = mean_abundance2, fill = Compartment)) +
+  geom_boxplot(fatten = 0.1, outlier.shape = NA) +
+  facet_grid(~Compartment+Generation) +
+  geom_jitter(size = 0.5, width = 0.25, height = 0)+
+  #xlab('') +
+  ylab("Log(10) 16S copy number") +
+  ylim(c(0,12))+
+  scale_fill_manual(values=c("black", "orange", "gold", "dark green"))+ #, "#66CC33", "#FF33CC")) + #, "#66CC33", "lightblue", "blue", "#FF33CC")) +
+  theme(axis.text.x = element_text(size=10, angle = 90)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10))+
+  theme(legend.position="none")
+print(absolute)
+ggsave(file="absolute_abundance_logscale_entire_community.svg", plot=absolute, width=10, height=2.5)
+
+G1 <- Long_samples_absolute_3
+G1 <- subset(G1, !(Status %in% "Enriched"))
+
+selection1_stat <- G1 %>%
+  dplyr::group_by(OTU, Treatment, Sample, Compartment, Generation) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance)) %>%
+  dplyr::group_by(Treatment, Sample, Compartment, Generation) %>%
+  dplyr::summarise(mean_abundance2 = sum(mean_abundance))
+
+selection1_stat$Treatment <- factor(selection1_stat$Treatment, levels = c("Mock", "Hpa"))
+selection1_stat$Compartment <- factor(selection1_stat$Compartment, levels = c("Bulk", "Wash_off", "Endosphere", "Phyllosphere"))
+selection1_stat$mean_abundance2 <- selection1_stat$mean_abundance2+1
+selection1_stat$mean_abundance2 <- log10(selection1_stat$mean_abundance2)
+
+absolute <- ggplot(selection1_stat, aes(x = Treatment, y = mean_abundance2, fill = Compartment)) +
+  geom_boxplot(fatten = 0.1, outlier.shape = NA) +
+  facet_grid(~Compartment+Generation) +
+  geom_jitter(size = 0.5, width = 0.25, height = 0)+
+  #xlab('') +
+  ylab("Log(10) 16S copy number") +
+  ylim(c(0,12))+
+  scale_fill_manual(values=c("black", "orange", "gold", "dark green"))+ #, "#66CC33", "#FF33CC")) + #, "#66CC33", "lightblue", "blue", "#FF33CC")) +
+  theme(axis.text.x = element_text(size=10, angle = 90)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10))+
+  theme(legend.position="none")
+print(absolute)
+ggsave(file="absolute_abundance_logscale_non_HAM.svg", plot=absolute, width=10, height=2.5)
+
+G1 <- Long_samples_absolute_3
+G1 <- subset(G1, (Status %in% "Enriched"))
+
+selection1_stat <- G1 %>%
+  dplyr::group_by(OTU, Treatment, Sample, Compartment, Generation) %>%
+  dplyr::summarise(mean_abundance = mean(Abundance)) %>%
+  dplyr::group_by(Treatment, Sample, Compartment, Generation) %>%
+  dplyr::summarise(mean_abundance2 = sum(mean_abundance))
+
+selection1_stat$Treatment <- factor(selection1_stat$Treatment, levels = c("Mock", "Hpa"))
+selection1_stat$Compartment <- factor(selection1_stat$Compartment, levels = c("Bulk", "Wash_off", "Endosphere", "Phyllosphere"))
+selection1_stat$mean_abundance2 <- selection1_stat$mean_abundance2+1
+selection1_stat$mean_abundance2 <- log10(selection1_stat$mean_abundance2)
+
+absolute <- ggplot(selection1_stat, aes(x = Treatment, y = mean_abundance2, fill = Compartment)) +
+  geom_boxplot(fatten = 0.1, outlier.shape = NA) +
+  facet_grid(~Compartment+Generation) +
+  geom_jitter(size = 0.5, width = 0.25, height = 0)+
+  #xlab('') +
+  ylab("Log(10) 16S copy number") +
+  ylim(c(0,12))+
+  scale_fill_manual(values=c("black", "orange", "gold", "dark green"))+ #, "#66CC33", "#FF33CC")) + #, "#66CC33", "lightblue", "blue", "#FF33CC")) +
+  theme(axis.text.x = element_text(size=10, angle = 90)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 10))+
+  theme(legend.position="none")
+print(absolute)
+ggsave(file="absolute_abundance_logscale_core_HAM.svg", plot=absolute, width=10, height=2.5)
+
+
+## statistics t.test(vec_control, vec_treatment, alternative = c("less"), var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+#fdr correction was performed in R using BH(vec_ranked_p-values, alpha = 0.05) of the 'sgof' package.
+
+#Fig. 4 ####
+#4A
+library(ggplot2)
+library(ggpubr)
+
+setwd("C:/Users/4255607/OneDrive - Universiteit Utrecht/PhD/Experiments/Chapter 4/Xanthomonas and HAM colonization/CFU_counts_exp_Pim")
+data <- read.csv(file = "2021-12-09_andOnwards_HpaVsGnoHpa_CFU_samples.csv", sep = ';')
+data <- subset(data, days_post_plating == '4_days')
+data$Treatment <- factor(data$Treatment, levels = c('mock', 'Hpa', 'gnoHpa'))
+
+boxplot <- ggboxplot(data, x = "Treatment", y = "Log_CFU_G", fill = "Treatment", width = 0.5, outlier.shape = NA, ylim = c(0, 10)) + ###not check, no signif
+  geom_jitter(size = 1, width = 0.25, height = 0)+
+  #geom_boxplot(width = 0.7, position=position_dodge(width = 0.5), fill = '#FF6600', color = 'black', alpha = 0.7) +
+  scale_y_continuous(name = "10Log(CFU/g freshweight)") +
+  scale_fill_manual(values=c(mock = "blue", Hpa='red', gnoHpa = "orange")) +
+  theme(#strip.text = element_text(face = "italic"),
+    legend.position = 'none',
+    axis.text.x = element_text(size=10, angle = 30, hjust = 1),
+    axis.text.y = element_text(size=10),
+    axis.title.y = element_text(size=10)) +#,
+  scale_x_discrete(name = "")
+print(boxplot)
+ggsave(file="Log_CFU_g_exp_Pim_scaled.svg", plot=boxplot, width=3, height=3)
+
+anova_treatment <- aov(Log_CFU_G ~ Treatment, data = data)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(Log_CFU_G~Treatment, data=data, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)
+
+#Fig. 4B
+setwd("C:/Users/4255607/OneDrive - Universiteit Utrecht/PhD/Experiments/Chapter 4/Xanthomonas and HAM colonization/Mixed through soil")
+data <- read.csv(file = "CFU_R_root.csv", sep = ';')
+
+data$Treatment <- factor(data$Treatment, levels = c('Root_mock', 'Root_gnoHpa'))
+
+boxplot <- ggboxplot(data, x = "Treatment", y = "Log_cfu_g", fill = "Treatment", width = 0.5, outlier.shape = NA, ylim = c(0, 10)) + ###not check, no signif
+  geom_jitter(size = 1, width = 0.25, height = 0)+
+  #geom_boxplot(width = 0.7, position=position_dodge(width = 0.5), fill = '#FF6600', color = 'black', alpha = 0.7) +
+  scale_y_continuous(name = "10Log(CFU/g freshweight)") +
+  scale_fill_manual(values=c(Root_mock = "blue", Root_gnoHpa = "orange")) +
+  theme(#strip.text = element_text(face = "italic"),
+    legend.position = 'none',
+    axis.text.x = element_text(size=10, angle = 30, hjust = 1),
+    axis.text.y = element_text(size=10),
+    axis.title.y = element_text(size=10)) +#,
+  scale_x_discrete(name = "")
+print(boxplot)
+ggsave(file="Log_CFU_g_root_shoot.svg", plot=boxplot, width=4, height=3)
+
+#Fig. 4C
+data <- read.csv(file = "CFU_R_3_days.csv", sep = ';')
+
+data$Treatment <- factor(data$Treatment, levels = c('mock', 'gnoHpa'))
+
+boxplot <- ggboxplot(data, x = "Treatment", y = "Log_cfu_g", fill = "Treatment", width = 0.5, outlier.shape = NA, ylim = c(0, 10)) + ###not check, no signif
+  geom_jitter(size = 1, width = 0.25, height = 0)+
+  #geom_boxplot(width = 0.7, position=position_dodge(width = 0.5), fill = '#FF6600', color = 'black', alpha = 0.7) +
+  #facet_grid(~Tissue)+
+  scale_y_continuous(name = "10Log(CFU/g freshweight)") +
+  scale_fill_manual(values=c(mock = "blue", gnoHpa = "orange")) +
+  theme(#strip.text = element_text(face = "italic"),
+    legend.position = 'none',
+    axis.text.x = element_text(size=10, angle = 30, hjust = 1),
+    axis.text.y = element_text(size=10),
+    axis.title.y = element_text(size=10)) +#,
+  scale_x_discrete(name = "")
+print(boxplot)
+ggsave(file="Log_CFU_g_mixed_through_soil_scaled.svg", plot=boxplot, width=2.5, height=3)
+
+#Fig. S11
+setwd("C:/Users/4255607/OneDrive - Universiteit Utrecht/PhD/Experiments/Chapter 4/Xanthomonas and HAM colonization/Co-inoculated on leaves")
+data <- read.csv(file = "CFU_R_3_days.csv", sep = ';')
+
+data$Treatment <- factor(data$Treatment, levels = c('mock', 'gnoHpa'))
+
+boxplot <- ggboxplot(data, x = "Treatment", y = "Log_cfu_g", fill = "Treatment", width = 0.5, outlier.shape = NA, ylim = c(5, 10)) + ###not check, no signif
+  geom_jitter(size = 1, width = 0.25, height = 0)+
+  #geom_boxplot(width = 0.7, position=position_dodge(width = 0.5), fill = '#FF6600', color = 'black', alpha = 0.7) +
+  scale_y_continuous(name = "10Log(CFU/g freshweight)") +
+  scale_fill_manual(values=c(mock = "blue", gnoHpa = "orange")) +
+  theme(#strip.text = element_text(face = "italic"),
+    legend.position = 'none',
+    axis.text.x = element_text(size=10, angle = 30, hjust = 1),
+    axis.text.y = element_text(size=10),
+    axis.title.y = element_text(size=10)) +#,
+  scale_x_discrete(name = "")
+print(boxplot)
+ggsave(file="Log_CFU_g_inoculated_leaves.svg", plot=boxplot, width=2, height=3)
+
+##Fig. 5 ####
+library(phyloseq)
+library(vegan)
+library(ggplot2)
+library(devtools)
+library(pairwiseAdonis)
+library(ggpubr)
+library(multcompView)
+library(DescTools)
+library(data.table)
+library(textshape)
+library(scales)
+library(picante)
+library(plyr)
+library(stringr)
+library(dplyr)
+
+setwd("C:/Users/4255607/OneDrive - Universiteit Utrecht/PhD/Experiments/Chapter 4/Phyllo_wash_off_legacy/")
+theme_set(theme_bw())
+#Metadataframe <- read.table("Spore_count_data_phyllo_wash_off_exp_R.txt", sep = '\t', header = TRUE)
+Spore_count_data_phyllo_wash_off_exp_R$Treatment <- factor(Spore_count_data_phyllo_wash_off_exp_R$Treatment, levels = c("Control", "Mock_Mock", "Hpa_Mock"))
+
+spores_g <- ggbarplot(Spore_count_data_phyllo_wash_off_exp_R, x = "Treatment", y = "Spores_g", fill = "dark green",
+                      add = "mean_se",
+                      position = position_dodge(0.8), width = 0.5, ylim = c(0,300000)) +
+  scale_y_continuous(name = "Spores per gram freshweight", labels = number) +
+  geom_jitter(size = 1, width = 0.25, height = 0)+
+  #scale_x_discrete(label = vec1) +
+  #facet_wrap( ~ Timepoint) + #, scales = "free", space = "free") +
+  #coord_cartesian(ylim=c(0,10)) +
+  #scale_fill_manual(values=c(Mock = "blue", Hpa = "red", gnoHpa = "orange", Untreated = "grey")) +
+  theme(legend.position = 'none',
+        axis.title.x=element_blank(),
+        axis.text.x=element_text(angle = 30, hjust = 1, size = 10),
+        axis.text.y=element_text(size = 10),
+        axis.title.y=element_text(size = 10, vjust = 2),
+        plot.title = element_text(hjust = 0.5, size = 10))
+print(spores_g)
+ggsave(file="Phyllo_wash_off_exp_3treatments.svg", plot=spores_g, width=3.5, height=2.5)
+
+anova_treatment <- aov(Spores_g ~ Treatment, data = Spore_count_data_phyllo_wash_off_exp_R)
+{summary(anova_treatment)
+  summary.lm(anova_treatment)}
+
+TUKEY <- TukeyHSD(anova_treatment)
+print(TUKEY)
+
+generate_label_df <- function(TUKEY, variable){
+  
+  # Extract labels and factor levels from Tukey post-hoc
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+# Apply the function on my dataset
+LABELS <- generate_label_df(TUKEY , "Treatment")
+names(LABELS)<-c('Letters','Treatment')
+yvalue<-aggregate(Spores_g~Treatment, data=Spore_count_data_phyllo_wash_off_exp_R, mean)# obtain letter position for y axis using means
+final<-merge(yvalue,LABELS)

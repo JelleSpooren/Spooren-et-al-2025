@@ -1,0 +1,331 @@
+## pre-processing amplicon sequence data Fig. 2
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path /media/wolf2/TeamBerendsen/Jelle/5_generation_exp/Genome_Quebec \
+  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
+  --output-path Input_5passages.qza
+  
+qiime demux summarize \
+  --i-data Input_5passages.qza \
+  --o-visualization Input_5passages
+
+#fw seqs start with CCTACGGGAGGCAGCAG, rv reads start with GACTACTAGGGTATCTAATCC
+#cut off primers
+qiime cutadapt trim-paired \
+  --i-demultiplexed-sequences Input_5passages.qza \
+  --p-cores 18 \
+  --p-front-f CCTACGGGNGGCWGCAG \
+  --p-front-r GACTACHVGGGTATCTAATCC \
+  --p-discard-untrimmed \
+  --o-trimmed-sequences 5passages_trimmed.qza \
+  --verbose
+  
+  #summarize
+qiime demux summarize \
+  --i-data 5passages_trimmed.qza \
+  --o-visualization 5passages_trimmed
+  
+#conda activate figaro
+#figaro -h 
+
+#figaro -o /media/wolf2/TeamBerendsen/Jelle/5_generation_exp/Genome_Quebec/Analysis/figaro_out_Jelle -a 428 -f 17 -r 21 -i /media/wolf2/TeamBerendsen/Jelle/5_generation_exp/Genome_Quebec/rawreads -m 20 -n figaro_output_rawreads
+
+### forward: 301 - 17 - 12 = 272, Reverse: 301 - 21 - 104 = 176 #did it work?
+  qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs 5passages_trimmed.qza \
+  --o-table 5passages_feature_table \
+  --o-representative-sequences 5passages_rep_seqs \
+  --p-trunc-len-f 272 \
+  --p-trunc-len-r 176 \
+  --p-max-ee-f 2 \
+  --p-max-ee-r 2 \
+  --p-n-threads 12 \
+  --o-denoising-stats 5passages_denoiseStats \
+  --verbose 
+  
+ qiime feature-table summarize \
+  --i-table 5passages_feature_table2.qza \
+  --o-visualization 5passages_feature_table2.qzv
+
+qiime feature-table tabulate-seqs \
+  --i-data 5passages_rep_seqs2.qza \
+  --o-visualization 5passages_rep_seqs2.qzv
+  
+qiime metadata tabulate \
+  --m-input-file 5passages_denoiseStats2.qza \
+  --o-visualization 5passages_denoiseStats2.qzv 
+  
+ qiime feature-classifier classify-consensus-vsearch \
+--i-query 5passages_rep_seqs.qza \
+--i-reference-reads 132_99_otus_16S_V3V4.qza \
+--i-reference-taxonomy ref-taxonomy.qza \
+--p-threads 16 \
+--o-classification 5passages_rep_seqs_assigned_taxonomy.qza \
+--o-search-results 5passages_search_results
+ 
+ qiime taxa barplot \
+  --i-table 5passages_feature_table.qza \
+  --i-taxonomy 5passages_rep_seqs_assigned_taxonomy.qza \
+  --m-metadata-file Metadata_5_gen_exp.txt \
+  --o-visualization 5passages_barplots
+ 
+ qiime taxa filter-table \
+  --i-table 5passages_feature_table.qza \
+  --i-taxonomy 5passages_rep_seqs_assigned_taxonomy.qza \
+  --p-exclude D_4__Mitochondria,D_3__Chloroplast,D_2__Chloroplast,D_0__Archaea,Unassigned \
+  --o-filtered-table 5passages_feature_table_filtered
+  
+  qiime taxa barplot \
+  --i-table 5passages_feature_table_filtered.qza \
+  --i-taxonomy 5passages_rep_seqs_assigned_taxonomy.qza \
+  --m-metadata-file Metadata_5_gen_exp.txt \
+  --o-visualization 5passages_barplots_filtered
+  
+  qiime feature-table summarize \
+  --i-table 5passages_feature_table_filtered.qza \
+  --o-visualization 5passages_feature_table_filtered.qzv
+  
+
+  qiime tools export \
+  --input-path 5passages_feature_table_filtered.qza \
+  --output-path 5passages_feature_table_filtered
+cd 5passages_feature_table_filtered
+biom convert -i feature-table.biom \
+  -o 5passages_feature_table_filtered.txt --to-tsv
+  
+  #457 was the point where ~97% of the cumulative abundance was kept (curve started flattening out), corresponding with 0,005% relative abundance. 493 ASVs left
+qiime feature-table filter-features \
+  --i-table 5passages_feature_table_filtered.qza \
+  --p-min-frequency 457 \
+  --p-min-samples 6 \
+  --o-filtered-table 5passages_feature_table_filtered_457_6.qza
+  
+  qiime feature-table summarize \
+  --i-table 5passages_feature_table_filtered_457_6.qza \
+  --o-visualization 5passages_feature_table_filtered_457_6.qzv
+  
+  qiime taxa barplot \
+  --i-table 5passages_feature_table_filtered_457_6.qza \
+  --i-taxonomy 5passages_rep_seqs_assigned_taxonomy.qza \
+  --m-metadata-file Metadata_5_gen_exp.txt \
+  --o-visualization 5passages_feature_table_filtered_457_6_barplot
+  
+  qiime feature-table filter-seqs \
+  --i-data 5passages_rep_seqs.qza \
+  --i-table 5passages_feature_table_filtered_457_6.qza \
+  --o-filtered-data 5passages_rep_seqs_filtered_457_6.qza \
+  --verbose
+  
+  qiime feature-table tabulate-seqs \
+  --i-data 5passages_rep_seqs_filtered_457_6.qza \
+  --o-visualization 5passages_rep_seqs_filtered_457_6.qzv
+  
+  qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences 5passages_rep_seqs_filtered_457_6.qza \
+  --o-alignment phyl_aligned_5passages_rep_seqs_filtered_457_6.qza \
+  --o-masked-alignment phyl_masked_aligned_5passages_rep_seqs_filtered_457_6.qza \
+  --o-tree phyl_unrooted_5passages_rep_seqs_filtered_457_6.qza \
+  --o-rooted-tree phyl_rooted_5passages_rep_seqs_filtered_457_6.qza
+  
+  qiime tools export \
+  --input-path phyl_rooted_5passages_rep_seqs_filtered_457_6.qza \
+  --output-path phyl_rooted_5passages_rep_seqs_filtered_457_6
+    
+  #export biom for ASV table
+qiime tools export \
+  --input-path 5passages_feature_table_filtered_457_6.qza \
+  --output-path 5passages_feature_table_filtered_457_6
+cd 5passages_feature_table_filtered_457_6
+biom convert -i feature-table.biom \
+  -o 5passages_feature_table_filtered_457_6.txt --to-tsv
+  
+  #export biom for ASV table
+qiime tools export \
+  --input-path 5passages_rep_seqs_filtered_457_6.qza \
+  --output-path 5passages_rep_seqs_filtered_457_6
+  
+  qiime tools export \
+  --input-path 5passages_rep_seqs_assigned_taxonomy.qza \
+  --output-path 5passages_rep_seqs_assigned_taxonomy
+ 
+#merge feature table and taxonomy in excel, put in txt file, then convert to biom
+biom convert -i 5passages_feature_table_filtered_457_6.txt \
+  -o 5passages_feature_table_filtered_457_6.biom \
+  --to-hdf5 --table-type="OTU table" --process-obs-metadata taxonomy
+  
+ ## pre-processing amplicon sequence data Fig. 3
+ 
+### issues with cutting primers in qiime2, run cutadapt directly in Raw_reads
+
+#in folder with .fastq.gz files
+mkdir readNames_adjusted
+cp *.gz readNames_adjusted
+cd readNames_adjusted
+gunzip *.gz
+for file in *.fastq
+do
+    sed -i '/@FCHJFJWBCX3/s/\#.*//g' $file
+done
+gzip *.fastq
+mkdir cutadapt
+for i in *_R1_001.fastq.gz
+do
+  SAMPLE=$(echo ${i} | sed "s/_R1_001\.fastq\.gz//")
+  fwin=$(echo ${SAMPLE}_R1_001.fastq.gz)
+  rvin=$(echo ${SAMPLE}_R2_001.fastq.gz)
+  fwout=$(echo $fwin)
+  rvout=$(echo ${rvin})
+  cutadapt -g CCTACGGGNGGCWGCAG -G GACTACHVGGGTATCTAATCC -o cutadapt/$fwout -p cutadapt/$rvout --discard-untrimmed $fwin $rvin
+done
+
+#import files into qiime2
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path /media/wolf2/TeamBerendsen/Jelle/Compartment/Raw_reads/readNames_adjusted/cutadapt \
+  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
+  --output-path /media/wolf2/TeamBerendsen/Jelle/Compartment/Raw_reads/readNames_adjusted/cutadapt/import_compartments.qza
+  
+qiime demux summarize \
+  --i-data import_compartments.qza \
+  --o-visualization import_compartments 
+  
+conda activate figaro
+figaro -h 
+
+### output: forward 246 (-5), reverse 240 (-11) based on rawreads, but how does that work with primers??
+cd /media/wolf2/TeamBerendsen/Jelle/Compartment/Raw_reads
+figaro -o /media/wolf2/TeamBerendsen/Jelle/Compartment/Raw_reads/readNames_adjusted/cutadapt/figaro_out_Jelle -a 428 -f 17 -r 21 -i /media/wolf2/TeamBerendsen/Jelle/Compartment/Raw_reads/ -m 20 -n figaro_output_rawreads
+
+### forward: 251 - 17 - 5 = 229, Reverse: 251 - 21 - 11 = 219 ## worked!!
+  qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs import_compartments.qza \
+  --o-table Compartments_feature_table4 \
+  --o-representative-sequences Compartments_rep_seqs4 \
+  --p-trunc-len-f 229 \
+  --p-trunc-len-r 219 \
+  --p-max-ee-f 2 \
+  --p-max-ee-r 2 \
+  --p-n-threads 12 \
+  --o-denoising-stats Compartments_denoiseStats4 \
+  --verbose  
+ 
+### samples with low read counts: B-M-G2-1, P-M-G1-4, B1, P-M-G1-3, B2,  WR-H-G2-2, E-H-G2-2, E-H-G2-10, E-H-G2-6, S2, E-M-G2-1, E-H-G2-7, S1, E-M-G1-7, B-M-G1-4, B3, S3
+ qiime feature-table summarize \
+  --i-table Compartments_feature_table4.qza \
+  --o-visualization Compartments_feature_table4.qzv
+
+qiime feature-table tabulate-seqs \
+  --i-data Compartments_rep_seqs4.qza \
+  --o-visualization Compartments_rep_seqs4.qzv 
+  
+qiime metadata tabulate \
+  --m-input-file Compartments_denoiseStats4.qza \
+  --o-visualization Compartments_denoiseStats4.qzv 
+  
+ cd Better_dada_run
+ 
+ qiime feature-classifier classify-consensus-vsearch \
+  --i-query Compartments_rep_seqs4.qza \
+  --i-reference-reads 99_otus_16S_V3V4.qza \
+  --i-reference-taxonomy ref-taxonomy.qza \
+  --p-threads 16 \
+  --o-classification Compartments_rep_seqs_assigned_taxonomy 
+
+  qiime taxa barplot \
+  --i-table Compartments_feature_table4.qza \
+  --i-taxonomy Compartments_rep_seqs_assigned_taxonomy.qza \
+  --m-metadata-file Metadata.txt \
+  --o-visualization Compartments_barplots
+  
+# filter out D_4__Mitochondria,D_2__Chloroplast,Unassigned
+qiime taxa filter-table \
+  --i-table Compartments_feature_table4.qza \
+  --i-taxonomy Compartments_rep_seqs_assigned_taxonomy.qza \
+  --p-exclude D_4__Mitochondria,D_3__Chloroplast,D_2__Chloroplast,D_0__Archaea,Unassigned \
+  --o-filtered-table Compartments_feature_table_filtered
+
+qiime taxa barplot \
+  --i-table Compartments_feature_table_filtered.qza \
+  --i-taxonomy Compartments_rep_seqs_assigned_taxonomy.qza \
+  --m-metadata-file Metadata.txt \
+  --o-visualization Compartments_barplots_filtered
+
+### samples with low read counts: B-M-G2-1, P-M-G1-4, B1, P-M-G1-3, B2,  WR-H-G2-2, E-H-G2-2, E-H-G2-10, S2, E-M-G2-1, S1, E-M-G1-7, B-M-G1-4, B3, S3, E-H-G2-7, E-H-G2-6
+qiime feature-table summarize \
+  --i-table Compartments_feature_table_filtered.qza \
+  --o-visualization Compartments_feature_table_filtered.qzv
+  
+  #export biom for checking ranked cumulative abundances if ASVs in Excel
+qiime tools export \
+  --input-path Compartments_feature_table_filtered.qza \
+  --output-path Compartments_feature_table_filtered
+cd Compartments_feature_table_filtered
+biom convert -i feature-table.biom \
+  -o Compartments_feature_table_filtered.txt --to-tsv
+  
+  #437 was the point where ~91.8% of the cumulative abundance was kept (curve started flattening out), corresponding with 0,00075% relative abundance. 9954 ASVs left (0.001% threshold is at 583, 90.5% kept)
+qiime feature-table filter-features \
+  --i-table Compartments_feature_table_filtered.qza \
+  --p-min-frequency 437 \
+  --p-min-samples 5 \
+  --o-filtered-table Compartments_feature_table_filtered_437_5.qza  
+
+ qiime feature-table summarize \
+  --i-table Compartments_feature_table_filtered_437_5.qza \
+  --o-visualization Compartments_feature_table_filtered_437_5.qzv
+ 
+qiime taxa barplot \
+  --i-table Compartments_feature_table_filtered_437_5.qza \
+  --i-taxonomy Compartments_rep_seqs_assigned_taxonomy.qza \
+  --m-metadata-file Metadata.txt \
+  --o-visualization Compartments_barplots_filtered_437_5
+
+qiime feature-table filter-seqs \
+  --i-data Compartments_rep_seqs4.qza \
+  --i-table Compartments_feature_table_filtered_437_5.qza \
+  --o-filtered-data Compartments_rep_seqs_filtered_437_5.qza \
+  --verbose
+ 
+ qiime tools export \
+  --input-path Compartments_rep_seqs_filtered_437_5.qza \
+  --output-path Compartments_rep_seqs_filtered_437_5
+  
+ qiime feature-table tabulate-seqs \
+  --i-data Compartments_rep_seqs_filtered_437_5.qza \
+  --o-visualization Compartments_rep_seqs_filtered_437_5.qzv  
+  
+ qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences  Compartments_rep_seqs_filtered_437_5.qza \
+  --o-alignment phyl_aligned_Compartments_rep_seqs_filtered_437_5.qza \
+  --o-masked-alignment phyl_masked_aligned_Compartments_rep_seqs_filtered_437_5.qza \
+  --o-tree phyl_unrooted_Compartments_rep_seqs_filtered_437_5.qza \
+  --o-rooted-tree phyl_rooted_Compartments_rep_seqs_filtered_437_5.qza
+  
+  qiime tools export \
+  --input-path phyl_rooted_Compartments_rep_seqs_filtered_437_5.qza \
+  --output-path phyl_rooted_Compartments_rep_seqs_filtered_437_5
+
+ 
+ #export biom for ASV table
+qiime tools export \
+  --input-path Compartments_feature_table_filtered_437_5.qza \
+  --output-path Compartments_feature_table_filtered_437_5
+cd Compartments_feature_table_filtered_437_5
+biom convert -i feature-table.biom \
+  -o Compartments_feature_table_filtered_437_5.txt --to-tsv
+  
+#export biom for ASV table
+qiime tools export \
+  --input-path Compartments_rep_seqs_assigned_taxonomy.qza \
+  --output-path Compartments_rep_seqs_assigned_taxonomy
+ 
+#merge feature table and taxonomy in excel, put in txt file, then convert to biom
+biom convert -i Compartments_feature_table_filtered_437_5.txt \
+  -o Compartments_feature_table_filtered_437_5.biom \
+  --to-hdf5 --table-type="OTU table" --process-obs-metadata taxonomy
+  
+  #for absolute abundance phyloseq object after generating txt in R:
+  #merge feature table and taxonomy in excel, put in txt file, then convert to biom
+biom convert -i Physeq_absolute_counts.txt \
+  -o Physeq_absolute_counts.biom \
+  --to-hdf5 --table-type="OTU table" --process-obs-metadata taxonomy
