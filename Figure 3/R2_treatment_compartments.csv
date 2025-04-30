@@ -1,0 +1,9 @@
+Compartment;Generation;R2
+Bulk;Conditioning;0.049
+Rhizosphere;Conditioning;0.069
+Root_endosphere;Conditioning;0.056
+Phyllosphere;Conditioning;0.52
+Bulk;Response;0.13
+Rhizosphere;Response;0.081
+Root_endosphere;Response;0.079
+Phyllosphere;Response;0.35

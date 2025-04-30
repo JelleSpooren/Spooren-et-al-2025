@@ -1,0 +1,202 @@
+SampleID	Sample_Name	Compartment	Treatment	Generation
+B1	NA	Blank	Blank	Blank
+B2	NA	Blank	Blank	Blank
+B3	NA	Blank	Blank	Blank
+B-H-G1-1	H1 H B R1	Bulk	Hpa	Generation_1
+B-H-G1-10	H1 H B R10	Bulk	Hpa	Generation_1
+B-H-G1-2	H1 H B R2	Bulk	Hpa	Generation_1
+B-H-G1-3	H1 H B R3	Bulk	Hpa	Generation_1
+B-H-G1-4	H1 H B R4	Bulk	Hpa	Generation_1
+B-H-G1-5	H1 H B R5	Bulk	Hpa	Generation_1
+B-H-G1-6	H1 H B R6	Bulk	Hpa	Generation_1
+B-H-G1-7	H1 H B R7	Bulk	Hpa	Generation_1
+B-H-G1-8	H1 H B R8	Bulk	Hpa	Generation_1
+B-H-G1-9	H1 H B R9	Bulk	Hpa	Generation_1
+B-H-G2-10	H2 H B R10	Bulk	Hpa	Generation_2
+B-H-G2-3	H2 H B R3	Bulk	Hpa	Generation_2
+B-H-G2-4	H2 H B R4	Bulk	Hpa	Generation_2
+B-H-G2-5	H2 H B R5	Bulk	Hpa	Generation_2
+B-H-G2-6	H2 H B R6	Bulk	Hpa	Generation_2
+B-H-G2-7	H2 H B R7	Bulk	Hpa	Generation_2
+B-H-G2-8	H2 H B R8	Bulk	Hpa	Generation_2
+B-H-G2-9	H2 H B R9	Bulk	Hpa	Generation_2
+B-M-G1-1	H1 M B R1	Bulk	Mock	Generation_1
+B-M-G1-10	H1 M B R10	Bulk	Mock	Generation_1
+B-M-G1-2	H1 M B R2	Bulk	Mock	Generation_1
+B-M-G1-3	H1 M B R3	Bulk	Mock	Generation_1
+B-M-G1-4	H1 M B R4	Bulk	Mock	Generation_1
+B-M-G1-5	H1 M B R5	Bulk	Mock	Generation_1
+B-M-G1-6	H1 M B R6	Bulk	Mock	Generation_1
+B-M-G1-7	H1 M B R7	Bulk	Mock	Generation_1
+B-M-G1-8	H1 M B R8	Bulk	Mock	Generation_1
+B-M-G1-9	H1 M B R9	Bulk	Mock	Generation_1
+B-M-G2-1	H2 M B R1	Bulk	Mock	Generation_2
+B-M-G2-2	H2 M B R2	Bulk	Mock	Generation_2
+B-M-G2-3	H2 M B R3	Bulk	Mock	Generation_2
+B-M-G2-4	H2 M B R4	Bulk	Mock	Generation_2
+B-M-G2-5	H2 M B R5	Bulk	Mock	Generation_2
+B-M-G2-6	H2 M B R6	Bulk	Mock	Generation_2
+B-M-G2-7	H2 M B R7	Bulk	Mock	Generation_2
+B-M-G2-8	H2 M B R8	Bulk	Mock	Generation_2
+E-H-G1-1	H1 H R12 S5	Endosphere	Hpa	Generation_1
+E-H-G1-10	H1 H R39 S5	Endosphere	Hpa	Generation_1
+E-H-G1-2	H1 H R14 S5	Endosphere	Hpa	Generation_1
+E-H-G1-3	H1 H R18 S5	Endosphere	Hpa	Generation_1
+E-H-G1-4	H1 H R21 S5	Endosphere	Hpa	Generation_1
+E-H-G1-5	H1 H R23 S5	Endosphere	Hpa	Generation_1
+E-H-G1-6	H1 H R17 S5	Endosphere	Hpa	Generation_1
+E-H-G1-7	H1 H R36 S5	Endosphere	Hpa	Generation_1
+E-H-G1-8	H1 H R38 S5	Endosphere	Hpa	Generation_1
+E-H-G1-9	H1 H R34 S5	Endosphere	Hpa	Generation_1
+E-H-G2-1	H2 H R41 S5	Endosphere	Hpa	Generation_2
+E-H-G2-10	H2 H R44 S5	Endosphere	Hpa	Generation_2
+E-H-G2-2	H2 H R42 S5	Endosphere	Hpa	Generation_2
+E-H-G2-3	H2 H R18 S5	Endosphere	Hpa	Generation_2
+E-H-G2-4	H2 H R20 S5	Endosphere	Hpa	Generation_2
+E-H-G2-5	H2 H R23 S5	Endosphere	Hpa	Generation_2
+E-H-G2-6	H2 H R43 S5	Endosphere	Hpa	Generation_2
+E-H-G2-7	H2 H R31 S5	Endosphere	Hpa	Generation_2
+E-H-G2-8	H2 H R33 S5	Endosphere	Hpa	Generation_2
+E-H-G2-9	H2 H R37 S5	Endosphere	Hpa	Generation_2
+E-M-G1-1	H1 M R12 S5	Endosphere	Mock	Generation_1
+E-M-G1-10	H1 M R39 S5	Endosphere	Mock	Generation_1
+E-M-G1-2	H1 M R16 S5	Endosphere	Mock	Generation_1
+E-M-G1-3	H1 M R19 S5	Endosphere	Mock	Generation_1
+E-M-G1-4	H1 M R22 S5	Endosphere	Mock	Generation_1
+E-M-G1-5	H1 M R24 S5	Endosphere	Mock	Generation_1
+E-M-G1-6	H1 M R27 S5	Endosphere	Mock	Generation_1
+E-M-G1-7	H1 M R29 S5	Endosphere	Mock	Generation_1
+E-M-G1-8	H1 M R32 S5	Endosphere	Mock	Generation_1
+E-M-G1-9	H1 M R34 S5	Endosphere	Mock	Generation_1
+E-M-G2-1	H2 M R12 S5	Endosphere	Mock	Generation_2
+E-M-G2-10	H2 M R42 S5	Endosphere	Mock	Generation_2
+E-M-G2-2	H2 M R14 S5	Endosphere	Mock	Generation_2
+E-M-G2-3	H2 M R16 S5	Endosphere	Mock	Generation_2
+E-M-G2-4	H2 M R19 S5	Endosphere	Mock	Generation_2
+E-M-G2-5	H2 M R21 S5	Endosphere	Mock	Generation_2
+E-M-G2-6	H2 M R26 S5	Endosphere	Mock	Generation_2
+E-M-G2-7	H2 M R38 S5	Endosphere	Mock	Generation_2
+E-M-G2-8	H2 M R31 S5	Endosphere	Mock	Generation_2
+E-M-G2-9	H2 M R40 S5	Endosphere	Mock	Generation_2
+P-H-G1-1	H1 H P11	Phyllosphere	Hpa	Generation_1
+P-H-G1-10	H1 H P34	Phyllosphere	Hpa	Generation_1
+P-H-G1-2	H1 H P12	Phyllosphere	Hpa	Generation_1
+P-H-G1-3	H1 H P16	Phyllosphere	Hpa	Generation_1
+P-H-G1-4	H1 H P18	Phyllosphere	Hpa	Generation_1
+P-H-G1-5	H1 H P19	Phyllosphere	Hpa	Generation_1
+P-H-G1-6	H1 H P22	Phyllosphere	Hpa	Generation_1
+P-H-G1-7	H1 H P23	Phyllosphere	Hpa	Generation_1
+P-H-G1-8	H1 H P24	Phyllosphere	Hpa	Generation_1
+P-H-G1-9	H1 H P27	Phyllosphere	Hpa	Generation_1
+P-H-G2-10	H2 H P33	Phyllosphere	Hpa	Generation_2
+P-H-G2-2	H2 H P15	Phyllosphere	Hpa	Generation_2
+P-H-G2-3	H2 H P17	Phyllosphere	Hpa	Generation_2
+P-H-G2-4	H2 H P18	Phyllosphere	Hpa	Generation_2
+P-H-G2-5	H2 H P19	Phyllosphere	Hpa	Generation_2
+P-H-G2-6	H2 H P20	Phyllosphere	Hpa	Generation_2
+P-H-G2-7	H2 H P21	Phyllosphere	Hpa	Generation_2
+P-H-G2-8	H2 H P23	Phyllosphere	Hpa	Generation_2
+P-H-G2-9	H2 H P31	Phyllosphere	Hpa	Generation_2
+P-M-G1-1	H1 M P13	Phyllosphere	Mock	Generation_1
+P-M-G1-10	H1 M P34	Phyllosphere	Mock	Generation_1
+P-M-G1-2	H1 M P17	Phyllosphere	Mock	Generation_1
+P-M-G1-3	H1 M P22	Phyllosphere	Mock	Generation_1
+P-M-G1-4	H1 M P23	Phyllosphere	Mock	Generation_1
+P-M-G1-5	H1 M P24	Phyllosphere	Mock	Generation_1
+P-M-G1-6	H1 M P26	Phyllosphere	Mock	Generation_1
+P-M-G1-7	H1 M P28	Phyllosphere	Mock	Generation_1
+P-M-G1-8	H1 M P29	Phyllosphere	Mock	Generation_1
+P-M-G1-9	H1 M P32	Phyllosphere	Mock	Generation_1
+P-M-G2-1	H2 M P11	Phyllosphere	Mock	Generation_2
+P-M-G2-10	H2 M P21	Phyllosphere	Mock	Generation_2
+P-M-G2-2	H2 M P12	Phyllosphere	Mock	Generation_2
+P-M-G2-3	H2 M P13	Phyllosphere	Mock	Generation_2
+P-M-G2-4	H2 M P14	Phyllosphere	Mock	Generation_2
+P-M-G2-5	H2 M P15	Phyllosphere	Mock	Generation_2
+P-M-G2-6	H2 M P16	Phyllosphere	Mock	Generation_2
+P-M-G2-7	H2 M P17	Phyllosphere	Mock	Generation_2
+P-M-G2-8	H2 M P19	Phyllosphere	Mock	Generation_2
+P-M-G2-9	H2 M P20	Phyllosphere	Mock	Generation_2
+S1	NA	Salinibacter	Salinibacter	Salinibacter
+S2	NA	Salinibacter	Salinibacter	Salinibacter
+S3	NA	Salinibacter	Salinibacter	Salinibacter
+WO-H-G1-1	H1 H R12	Wash_off	Hpa	Generation_1
+WO-H-G1-10	H1 H R39	Wash_off	Hpa	Generation_1
+WO-H-G1-2	H1 H R14	Wash_off	Hpa	Generation_1
+WO-H-G1-3	H1 H R18	Wash_off	Hpa	Generation_1
+WO-H-G1-4	H1 H R21	Wash_off	Hpa	Generation_1
+WO-H-G1-5	H1 H R23	Wash_off	Hpa	Generation_1
+WO-H-G1-6	H1 H R27	Wash_off	Hpa	Generation_1
+WO-H-G1-7	H1 H R29	Wash_off	Hpa	Generation_1
+WO-H-G1-8	H1 H R32	Wash_off	Hpa	Generation_1
+WO-H-G1-9	H1 H R34	Wash_off	Hpa	Generation_1
+WO-H-G2-1	H2 H R14	Wash_off	Hpa	Generation_2
+WO-H-G2-10	H2 H R40	Wash_off	Hpa	Generation_2
+WO-H-G2-2	H2 H R16	Wash_off	Hpa	Generation_2
+WO-H-G2-3	H2 H R18	Wash_off	Hpa	Generation_2
+WO-H-G2-4	H2 H R20	Wash_off	Hpa	Generation_2
+WO-H-G2-5	H2 H R23	Wash_off	Hpa	Generation_2
+WO-H-G2-6	H2 H R29	Wash_off	Hpa	Generation_2
+WO-H-G2-7	H2 H R31	Wash_off	Hpa	Generation_2
+WO-H-G2-8	H2 H R33	Wash_off	Hpa	Generation_2
+WO-H-G2-9	H2 H R37	Wash_off	Hpa	Generation_2
+WO-M-G1-1	H1 M R12	Wash_off	Mock	Generation_1
+WO-M-G1-10	H1 M R38	Wash_off	Mock	Generation_1
+WO-M-G1-2	H1 M R16	Wash_off	Mock	Generation_1
+WO-M-G1-3	H1 M R19	Wash_off	Mock	Generation_1
+WO-M-G1-4	H1 M R22	Wash_off	Mock	Generation_1
+WO-M-G1-5	H1 M R24	Wash_off	Mock	Generation_1
+WO-M-G1-6	H1 M R27	Wash_off	Mock	Generation_1
+WO-M-G1-7	H1 M R29	Wash_off	Mock	Generation_1
+WO-M-G1-8	H1 M R32	Wash_off	Mock	Generation_1
+WO-M-G1-9	H1 M R34	Wash_off	Mock	Generation_1
+WO-M-G2-1	H2 M R12	Wash_off	Mock	Generation_2
+WO-M-G2-10	H2 M R37	Wash_off	Mock	Generation_2
+WO-M-G2-2	H2 M R14	Wash_off	Mock	Generation_2
+WO-M-G2-3	H2 M R16	Wash_off	Mock	Generation_2
+WO-M-G2-4	H2 M R19	Wash_off	Mock	Generation_2
+WO-M-G2-5	H2 M R21	Wash_off	Mock	Generation_2
+WO-M-G2-6	H2 M R26	Wash_off	Mock	Generation_2
+WO-M-G2-7	H2 M R28	Wash_off	Mock	Generation_2
+WO-M-G2-8	H2 M R31	Wash_off	Mock	Generation_2
+WO-M-G2-9	H2 M R33	Wash_off	Mock	Generation_2
+WR-H-G1-1	H1 H R11	Whole_root	Hpa	Generation_1
+WR-H-G1-10	H1 H R37	Whole_root	Hpa	Generation_1
+WR-H-G1-2	H1 H R13	Whole_root	Hpa	Generation_1
+WR-H-G1-3	H1 H R16	Whole_root	Hpa	Generation_1
+WR-H-G1-4	H1 H R19	Whole_root	Hpa	Generation_1
+WR-H-G1-5	H1 H R22	Whole_root	Hpa	Generation_1
+WR-H-G1-6	H1 H R24	Whole_root	Hpa	Generation_1
+WR-H-G1-7	H1 H R28	Whole_root	Hpa	Generation_1
+WR-H-G1-8	H1 H R31	Whole_root	Hpa	Generation_1
+WR-H-G1-9	H1 H R33	Whole_root	Hpa	Generation_1
+WR-H-G2-1	H2 H R13	Whole_root	Hpa	Generation_2
+WR-H-G2-10	H2 H R38	Whole_root	Hpa	Generation_2
+WR-H-G2-2	H2 H R15	Whole_root	Hpa	Generation_2
+WR-H-G2-3	H2 H R17	Whole_root	Hpa	Generation_2
+WR-H-G2-4	H2 H R19	Whole_root	Hpa	Generation_2
+WR-H-G2-5	H2 H R21	Whole_root	Hpa	Generation_2
+WR-H-G2-6	H2 H R28	Whole_root	Hpa	Generation_2
+WR-H-G2-7	H2 H R30	Whole_root	Hpa	Generation_2
+WR-H-G2-8	H2 H R32	Whole_root	Hpa	Generation_2
+WR-H-G2-9	H2 H R36	Whole_root	Hpa	Generation_2
+WR-M-G1-1	H1 M R11	Whole_root	Mock	Generation_1
+WR-M-G1-10	H1 M R36	Whole_root	Mock	Generation_1
+WR-M-G1-2	H1 M R13	Whole_root	Mock	Generation_1
+WR-M-G1-3	H1 M R17	Whole_root	Mock	Generation_1
+WR-M-G1-4	H1 M R21	Whole_root	Mock	Generation_1
+WR-M-G1-5	H1 M R23	Whole_root	Mock	Generation_1
+WR-M-G1-6	H1 M R26	Whole_root	Mock	Generation_1
+WR-M-G1-7	H1 M R28	Whole_root	Mock	Generation_1
+WR-M-G1-8	H1 M R31	Whole_root	Mock	Generation_1
+WR-M-G1-9	H1 M R33	Whole_root	Mock	Generation_1
+WR-M-G2-1	H2 M R11	Whole_root	Mock	Generation_2
+WR-M-G2-10	H2 M R36	Whole_root	Mock	Generation_2
+WR-M-G2-2	H2 M R13	Whole_root	Mock	Generation_2
+WR-M-G2-3	H2 M R15	Whole_root	Mock	Generation_2
+WR-M-G2-4	H2 M R17	Whole_root	Mock	Generation_2
+WR-M-G2-5	H2 M R 20	Whole_root	Mock	Generation_2
+WR-M-G2-6	H2 M R 23	Whole_root	Mock	Generation_2
+WR-M-G2-7	H2 M R27	Whole_root	Mock	Generation_2
+WR-M-G2-8	H2 M R29	Whole_root	Mock	Generation_2
+WR-M-G2-9	H2 M R32	Whole_root	Mock	Generation_2
