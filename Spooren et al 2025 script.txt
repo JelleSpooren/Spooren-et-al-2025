@@ -694,7 +694,7 @@ samples_relative = transform_sample_counts(ASV_table_meta_no_salini, function(x)
 
 theme_set(theme_bw())
 
-##Fig. 3A
+##Fig. 2A
 samples_relative.ord <- ordinate(samples_relative, "PCoA", "bray") #unweighted jaccard requires binary=TRUE
 samples_relative_bray_PCoA_1 = plot_ordination(samples_relative, samples_relative.ord, type="samples", color="Treatment") #, axes = 2:3)
 print(samples_relative_bray_PCoA_1)
@@ -770,7 +770,7 @@ plot <- ggplot(R2_Pvalue, aes(y=R2, x=Timepoint, color= Treatment)) +
 print(plot)
 ggsave(file="R2_values_vs_untreated.svg", plot=plot, width=4, height=2)
 
-#Fig. 3B: create excel file with R2 values uninfected vs gnoHpa passaging lineages
+#Fig. 2B: create excel file with R2 values uninfected vs gnoHpa passaging lineages
 R2_Pvalue <- read.csv("R2_Pvalue_mock_vs_gnoHpa_PCoA.csv", sep = ';')
 
 plot <- ggplot(R2_Pvalue, aes(y=R2, x=Timepoint)) +
@@ -783,7 +783,7 @@ plot <- ggplot(R2_Pvalue, aes(y=R2, x=Timepoint)) +
 print(plot)
 ggsave(file="mock_vs_gnoHpa_R2_Pvalues.svg", plot=plot, width=2, height=2)
 
-## Fig. 3C
+## Fig. 2C
 #criterium 1: eniched gnoHpa vs uninfected
 ##differential abundance testing
 phyloseq_filter_prevalence <- function(physeq, prev.trh = 0.25, abund.trh = NULL, threshold_condition = "OR", abund.type = "total"){
@@ -2340,7 +2340,7 @@ SBL_correlations$Padj <- p.adjust(SBL_correlations$P, method = "BH", n = length(
 SBL_correlations <- apply(SBL_correlations,2,as.character)
 write.table(SBL_correlations, file = "spearman_correlations_ASVs_gnoHpa_Mock_diseasequantification.txt", sep = "\t")
 
-#Fig. 3D
+#Fig. 2D
 ## 12 ASVs abundance plots
 Long_samples_relative <- samples_relative %>%
   psmelt() # Melt to long format
@@ -2646,7 +2646,7 @@ names(LABELS)<-c('Letters','Treatment')
 yvalue<-aggregate(mean_abundance2~Treatment, data=selection1_stat_sub, mean)# obtain letter position for y axis using means
 final<-merge(yvalue,LABELS)
 
-#Fig. 3E
+#Fig. 2E
 G1 <- subset(G1, OTU == "ed6be6f35c692c6166ff8442f30ba282")
 
 selection1_stat <- G1 %>%
@@ -2955,7 +2955,7 @@ plot <- ggplot(selection, aes(x = Compartment, y = mean_abundance_2, fill = Stat
 print(plot)
 ggsave(file="Abundances_ASVs_detected.svg", plot=plot, width=6, height=4)
 
-#Fig. 4A
+#Fig. 3A
 ## Sankey plot
 Long_samples_relative <- samples_relative %>%
   psmelt() # Melt to long format
@@ -3279,7 +3279,7 @@ taxbarplot <- ggplot(selection1, aes(x = Status4, y = mean_abundance_2, fill = P
 print(taxbarplot)
 ggsave(file="Barplot_associated_ASVs_most_abundant_per_compartment_tax_Endosphere.svg", plot=taxbarplot, width=4, height=5)
 
-#Fig. 4B
+#Fig. 3B
 ##PCoA plot
 
 samples_relative.ord <- ordinate(samples_relative, "PCoA", "bray") #unweighted jaccard requires binary=TRUE
@@ -3378,7 +3378,7 @@ stacked_barplot <- ggplot(table_sub, aes(x = Compartment, y = R2, fill = Compart
 print(stacked_barplot)
 ggsave(file="R2_treatment_per_compartment_response.svg", plot=stacked_barplot, width=6, height=1)
 
-#Fig. 4C
+#Fig. 3C
 ## HAM abundances
 Long_samples_relative <- samples_relative %>%
   psmelt() # Melt to long format
